@@ -167,18 +167,21 @@ export async function receiveEmailWithNotifications(
 	await forwardToGlobalArchive(event, env, raw, originalMessageId, parsed);
 
 	const settings = await getPostDeliverySettings(env, mailboxId);
-	// Keep the native Cloudflare EmailMessage.forward() call bound to the
-	// original event object. This is deliberately not put in waitUntil().
+	// When the global archive is configured, it replaces the legacy per-mailbox
+	// forwarding target. Other post-delivery features remain unchanged.
+	const effectiveSettings = env.ARCHIVE_EMAIL?.trim()
+		? { ...settings, forwarding: { enabled: false, email: "" } }
+		: settings;
 	const nativeForward = typeof event.forward === "function"
 		? event.forward.bind(event)
 		: undefined;
 
-	if (settings.forwarding?.enabled && settings.forwarding.email && !nativeForward) {
+	if (effectiveSettings.forwarding?.enabled && effectiveSettings.forwarding.email && !nativeForward) {
 		console.error("Native email forwarding is unavailable for this email event");
 	}
-	if (settings.forwarding?.enabled && settings.forwarding.email && event.canBeForwarded === false) {
+	if (effectiveSettings.forwarding?.enabled && effectiveSettings.forwarding.email && event.canBeForwarded === false) {
 		console.error("Cloudflare reports this email cannot be forwarded natively");
 	}
 
-	await runPostDelivery(env, ctx, delivered, settings, nativeForward);
+	await runPostDelivery(env, ctx, delivered, effectiveSettings, nativeForward);
 }
