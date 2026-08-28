@@ -116,4 +116,4 @@ app.all("/agents/*", async (c) => {
 	return c.text("Agent not found", 404);
 });
 app.all("*", (c) => requestHandler(c.req.raw, { cloudflare: { env: c.env, ctx: c.executionCtx as ExecutionContext } }));
-export default { fetch: app.fetch, async email(event: { raw: ReadableStream; rawSize: number; forward: (target: string) => Promise<void> }, env: Env, ctx: ExecutionContext) { try { await receiveEmailWithNotifications(event, env, ctx); } catch (e) { console.error("Failed to process incoming email:", (e as Error).message, (e as Error).stack); throw e; } } };
+export default { fetch: app.fetch, async email(event: { raw: ReadableStream; rawSize: number; to?: string; forward: (target: string) => Promise<void> }, env: Env, ctx: ExecutionContext) { try { await receiveEmailWithNotifications(event, env, ctx); } catch (e) { console.error("Failed to process incoming email:", (e as Error).message, (e as Error).stack); throw e; } } };
