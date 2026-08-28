@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Cloudflare, Inc.
+// Licensed under the Apache 2.0 license found in the LICENSE file or at:
+//     https://opensource.org/licenses/Apache-2.0
+
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
@@ -28,5 +32,5 @@ app.get("/api/v1/mailboxes/:mailboxId",async c=>{const id=c.req.param("mailboxId
 
 const MAX_EMAIL_SIZE=25*1024*1024;
 async function streamToArrayBuffer(stream:ReadableStream,size:number){if(size>MAX_EMAIL_SIZE||size<=0)throw new Error(`Invalid email size: ${size}`);const out=new Uint8Array(size);let n=0;const r=stream.getReader();while(true){const {done,value}=await r.read();if(done)break;if(n+value.length>size){r.cancel();throw new Error("Stream exceeds declared size");}out.set(value,n);n+=value.length;}return out;}
-async function receiveEmail(event:{raw:ReadableStream;rawSize:number},env:Env,ctx:ExecutionContext){const raw=await streamToArrayBuffer(event.raw,event.rawSize);const parsed=await new PostalMime().parse(raw);const messageId=crypto.randomUUID();const stub=env.MAILBOX.get(env.MAILBOX.idFromName(parsed.to![0].address));const extract=(s:string)=>{const m=s.match(/<([^>]+)>/);return m?m[1]:s.trim().split(/\s+/)[0];};const inReply=parsed.inReplyTo?extract(parsed.inReplyTo):null;const refs=parsed.references?parsed.references.split(/\s+/).filter(Boolean).map(extract):[];let threadId=resolveThreadId(messageId, refs, inReply);if(!inReply&&!refs.length){const t=await(stub as any).findThreadBySubject(parsed.subject||"",parsed.from?.address||undefined);if(t)threadId=t;}}
+async function receiveEmail(event:{raw:ReadableStream;rawSize:number},env:Env,ctx:ExecutionContext){const raw=await streamToArrayBuffer(event.raw,event.rawSize);const parsed=await new PostalMime().parse(raw);const messageId=crypto.randomUUID();const stub=env.MAILBOX.get(env.MAILBOX.idFromName(parsed.to![0].address));const extract=(s:string)=>{const m=s.match(/<([^>]+)>/);return m?m[1]:s.trim().split(/\s+/)[0];};const inReply=parsed.inReplyTo?extract(parsed.inReplyTo):null;const refs=parsed.references?parsed.references.split(/\s+/).filter(Boolean).map(extract):[];let threadId = resolveThreadId(messageId, refs, inReply);if(!inReply&&!refs.length){const t=await(stub as any).findThreadBySubject(parsed.subject||"",parsed.from?.address||undefined);if(t)threadId=t;}}
 export { app, receiveEmail };
