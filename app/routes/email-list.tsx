@@ -258,104 +258,204 @@ export default function EmailListRoute() {
 
 	const formatParticipants = (email: Email): string => {
 		if (email.participants) {
-			return email.participants
+			const names = email.participants
 				.split(",")
-				.map((p) => p.trim())
-				.filter(Boolean)
-				.join(", ");
+				.map((p) => p.trim().split("@")[0])
+				.filter((name, idx, arr) => arr.indexOf(name) === idx);
+			if (names.length <= 3) return names.join(", ");
+			return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
 		}
-		return email.sender;
-	};
-
-	const renderEmailRow = (email: Email) => {
-		const unread = hasUnread(email);
-		const snippet = getSnippetText(email.body || "");
-		return (
-			<button
-				key={email.id}
-				type="button"
-				onClick={() => handleRowClick(email)}
-				className={`w-full text-left px-3 py-3 border-b border-kumo-line hover:bg-kumo-tint transition-colors ${
-					selectedEmailId === email.id ? "bg-kumo-tint" : ""
-				}`}
-			>
-				<div className="flex items-start gap-3">
-					<div className="pt-1">
-						{unread ? (
-							<EnvelopeSimpleIcon size={18} weight="fill" className="text-kumo-default" />
-						) : (
-							<EnvelopeOpenIcon size={18} className="text-kumo-subtle" />
-						)}
-					</div>
-					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-2">
-							<span className={`truncate ${unread ? "font-semibold text-kumo-default" : "text-kumo-default"}`}>
-								{formatParticipants(email)}
-							</span>
-							{email.thread_count && email.thread_count > 1 ? (
-								<span className="text-xs text-kumo-subtle">{email.thread_count}</span>
-							) : null}
-							<span className="ml-auto shrink-0 text-xs text-kumo-subtle">
-								{formatListDate(email.date)}
-							</span>
-						</div>
-						<div className={`truncate text-sm ${unread ? "font-medium text-kumo-default" : "text-kumo-subtle"}`}>
-							{email.subject || "(no subject)"}
-						</div>
-						<div className="truncate text-xs text-kumo-subtle mt-0.5">{snippet}</div>
-					</div>
-					<div className="shrink-0 pt-0.5">
-						<Tooltip content={email.starred ? "Unstar" : "Star"}>
-							<button
-								type="button"
-								onClick={(e) => toggleStar(e, email)}
-								className="p-1 rounded hover:bg-kumo-tint"
-								aria-label={email.starred ? "Unstar" : "Star"}
-							>
-								<StarIcon size={16} weight={email.starred ? "fill" : "regular"} className="text-kumo-subtle" />
-							</button>
-						</Tooltip>
-					</div>
-				</div>
-			</button>
-		);
+		return email.sender.split("@")[0];
 	};
 
 	return (
-		<MailboxSplitView selectedEmailId={selectedEmailId} isComposing={isComposing}>
-			<div className="flex h-full flex-col">
-				<div className="flex items-center justify-between border-b border-kumo-line px-3 py-2">
-					<div className="text-sm font-medium text-kumo-default">{folderName}</div>
-					<Button
-						variant="ghost"
-						size="sm"
-						icon={<ArrowsClockwiseIcon size={16} />}
-						onClick={handleRefresh}
-						loading={isRefreshing}
-						aria-label="Refresh"
-					>
-						Refresh
-					</Button>
+		<MailboxSplitView
+			selectedEmailId={selectedEmailId}
+			isComposing={isComposing}
+		>
+				{/* Folder header */}
+				<div className="flex items-center justify-between px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
+					<h1 className="text-lg font-semibold text-kumo-default">
+						{folderName}
+					</h1>
+					<div className="flex items-center gap-1">
+						{totalCount > 0 && (
+							<span className="text-sm text-kumo-subtle mr-2 hidden sm:inline">
+								{totalCount} conversation{totalCount !== 1 ? "s" : ""}
+							</span>
+						)}
+						<Tooltip
+							content={isRefreshing ? "Refreshing..." : "Refresh"}
+							side="bottom"
+							asChild
+						>
+							<Button
+								variant="ghost"
+								shape="square"
+								size="sm"
+								icon={
+									<ArrowsClockwiseIcon
+										size={18}
+										className={isRefreshing ? "animate-spin" : ""}
+									/>
+								}
+								onClick={handleRefresh}
+								disabled={isRefreshing}
+								aria-label="Refresh"
+							/>
+						</Tooltip>
+					</div>
 				</div>
+
+				{/* Email rows */}
 				<div className="flex-1 overflow-y-auto">
-					{!emailData ? (
-						<EmailListSkeleton />
-					) : emails.length === 0 ? (
-						<FolderEmptyState folder={folder} onCompose={startCompose} />
+				{isRefreshing && emails.length === 0 ? (
+					<EmailListSkeleton />
+				) : emails.length > 0 ? (
+						<div>
+							{emails.map((email) => {
+								const isSelected = selectedEmailId === email.id;
+								const snippet = getSnippetText(email.snippet);
+								return (
+									<div
+										key={email.id}
+										role="button"
+										tabIndex={0}
+										onClick={() => handleRowClick(email)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleRowClick(email);
+											}
+										}}
+										className={`group flex items-center gap-3 w-full text-left cursor-pointer transition-colors border-b border-kumo-line px-4 py-2.5 md:px-6 md:py-3 ${
+											isPanelOpen ? "md:px-4 md:py-2.5" : ""
+										} ${isSelected ? "bg-kumo-tint" : "hover:bg-kumo-tint"}`}
+									>
+										{/* Unread dot */}
+										<div className="w-2.5 shrink-0 flex justify-center">
+											{hasUnread(email) && (
+												<div className="h-2 w-2 rounded-full bg-kumo-brand" />
+											)}
+										</div>
+
+										{/* Star */}
+										<button
+											type="button"
+											className="shrink-0 p-0.5 bg-transparent border-0 cursor-pointer"
+											onClick={(e) => {
+												e.stopPropagation();
+												toggleStar(e, email);
+											}}
+										>
+											<StarIcon
+												size={16}
+												weight={email.starred ? "fill" : "regular"}
+												className={
+												email.starred
+														? "text-kumo-warning"
+														: "text-kumo-subtle hover:text-kumo-warning"
+												}
+											/>
+										</button>
+
+										{/* Content */}
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-2">
+												<span
+													className={`truncate text-sm ${hasUnread(email) ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}
+												>
+													{formatParticipants(email)}
+												</span>
+												{(email.thread_count ?? 1) > 1 && (
+													<span className="shrink-0 text-xs text-kumo-subtle bg-kumo-fill rounded-full px-1.5 py-0.5 font-medium">
+														{email.thread_count}
+													</span>
+												)}
+												{email.has_draft && (
+													<span className="shrink-0 text-xs text-kumo-destructive font-medium">
+														Draft
+													</span>
+												)}
+												{email.needs_reply && !email.has_draft && (
+													<Tooltip content="Needs reply" asChild>
+														<span className="shrink-0 text-kumo-warning">
+															<ArrowBendUpLeftIcon size={14} weight="bold" />
+														</span>
+													</Tooltip>
+												)}
+												<span className="text-sm text-kumo-subtle shrink-0 ml-auto">
+													{formatListDate(email.date)}
+												</span>
+											</div>
+											<div className="truncate text-sm mt-0.5">
+												<span
+													className={hasUnread(email) ? "font-medium text-kumo-default" : "text-kumo-subtle"}
+												>
+													{email.subject}
+												</span>
+											{snippet && (
+												<span className="text-kumo-subtle font-normal">
+													{" "}&mdash; {snippet}
+												</span>
+											)}
+											</div>
+										</div>
+
+										{/* Hover actions */}
+										<div className="hidden group-hover:flex items-center shrink-0">
+											<Tooltip content={email.read ? "Mark unread" : "Mark read"} asChild>
+												<Button
+													variant="ghost"
+													shape="square"
+													size="sm"
+													icon={email.read ? <EnvelopeSimpleIcon size={14} /> : <EnvelopeOpenIcon size={14} />}
+													onClick={(e) => {
+														e.stopPropagation();
+														if (mailboxId)
+															updateEmail.mutate({
+																mailboxId,
+																id: email.id,
+																data: { read: !email.read },
+															});
+													}}
+													aria-label={email.read ? "Mark unread" : "Mark read"}
+												/>
+											</Tooltip>
+											<Tooltip content="Delete" asChild>
+												<Button
+													variant="ghost"
+													shape="square"
+													size="sm"
+													icon={<TrashIcon size={14} />}
+													onClick={(e) => handleDelete(e, email.id)}
+													aria-label="Delete"
+												/>
+											</Tooltip>
+										</div>
+									</div>
+								);
+							})}
+						</div>
 					) : (
-						<div>{emails.map(renderEmailRow)}</div>
+						<FolderEmptyState
+							folder={folder}
+							onCompose={() => startCompose()}
+						/>
 					)}
 				</div>
+
+				{/* Pagination */}
 				{totalCount > PAGE_SIZE && (
-					<div className="border-t border-kumo-line px-3 py-2">
+					<div className="flex justify-center py-3 border-t border-kumo-line shrink-0">
 						<Pagination
 							page={page}
-							totalPages={Math.ceil(totalCount / PAGE_SIZE)}
-							onPageChange={setPage}
+							setPage={setPage}
+							perPage={PAGE_SIZE}
+							totalCount={totalCount}
 						/>
 					</div>
 				)}
-			</div>
 		</MailboxSplitView>
 	);
 }
