@@ -6,12 +6,6 @@
 	"observability": { "enabled": true },
 	"compatibility_flags": ["nodejs_compat"],
 	"keep_vars": true,
-	"vars": {
-		"DOMAINS": "astra-hk.com",
-		"TEAM_DOMAIN": "astra-hk.com",
-		"ADMIN_EMAIL": "admin@astra-hk.com",
-		"EMAIL_ADDRESSES": []
-	},
 	"send_email": [{ "name": "EMAIL", "remote": true }],
 	"r2_buckets": [
 		{
