@@ -5,16 +5,25 @@
 	"main": "./workers/app.ts",
 	"observability": { "enabled": true },
 	"compatibility_flags": ["nodejs_compat"],
+	"keep_vars": true,
 	"vars": {
-		"DOMAINS": "example.com",
+		"DOMAINS": "astra-hk.com",
+		"TEAM_DOMAIN": "astra-hk.com",
+		"ADMIN_EMAIL": "admin@astra-hk.com",
 		"EMAIL_ADDRESSES": []
 	},
 	"send_email": [{ "name": "EMAIL", "remote": true }],
-	"r2_buckets": [{
-		"binding": "BUCKET",
-		"bucket_name": "agentic-inbox",
-		"preview_bucket_name": "agentic-inbox"
-	}],
+	"r2_buckets": [
+		{
+			"binding": "BUCKET",
+			"bucket_name": "agentic-inbox",
+			"preview_bucket_name": "agentic-inbox"
+		},
+		{
+			"binding": "SIGNATURE_ASSETS",
+			"bucket_name": "agentic-inbox-signatures"
+		}
+	],
 	"ai": { "binding": "AI" },
 	"durable_objects": {
 		"bindings": [
