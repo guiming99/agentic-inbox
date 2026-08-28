@@ -116,6 +116,18 @@ export function buildReferencesChain(original: EmailFull): {
 }
 
 /**
+ * Resolve a conversation thread id using RFC email threading headers.
+ * Priority: References[0] -> In-Reply-To -> current Message-ID.
+ */
+export function resolveThreadId(
+	messageId: string,
+	references: string[] = [],
+	inReplyTo?: string | null,
+): string {
+	return references[0] || inReplyTo || messageId;
+}
+
+/**
  * Build threading headers (In-Reply-To + References) for the email binding.
  */
 export function buildThreadingHeaders(
@@ -159,7 +171,7 @@ export function escapeHtml(text: string): string {
 		.replace(/&/g, "&amp;")
 		.replace(/</g, "&lt;")
 		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
+		.replace(/\"/g, "&quot;")
 		.replace(/'/g, "&#39;");
 }
 

@@ -171,7 +171,7 @@ export default function EmailListRoute() {
 	const {
 		data: emailData,
 		isFetching: isRefreshing,
-	} = useEmails(mailboxId, params, { refetchInterval: 30_000 });
+	} = useEmails(mailboxId, params, { refetchInterval: 5_000 });
 
 	const emails = emailData?.emails ?? [];
 	const totalCount = emailData?.totalCount ?? 0;
@@ -352,7 +352,7 @@ export default function EmailListRoute() {
 												size={16}
 												weight={email.starred ? "fill" : "regular"}
 												className={
-													email.starred
+												email.starred
 														? "text-kumo-warning"
 														: "text-kumo-subtle hover:text-kumo-warning"
 												}
@@ -399,8 +399,8 @@ export default function EmailListRoute() {
 													{" "}&mdash; {snippet}
 												</span>
 											)}
+											</div>
 										</div>
-									</div>
 
 										{/* Hover actions */}
 										<div className="hidden group-hover:flex items-center shrink-0">

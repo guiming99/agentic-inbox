@@ -168,4 +168,96 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_emails_folder_date ON emails(folder_id, date DESC);
         `,
 	},
+	{
+		name: "9_subject_thread_fallback",
+		sql: txn(`
+            -- Existing messages without RFC threading headers should use
+            -- normalized subject as the final conversation fallback.
+            UPDATE emails
+            SET thread_id = (
+                SELECT candidate.thread_id
+                FROM emails candidate
+                WHERE candidate.id != emails.id
+                  AND candidate.thread_id IS NOT NULL
+                  AND LOWER(TRIM(
+                      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                          LOWER(candidate.subject),
+                          'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
+                          're: ', ''), 'fwd: ', ''), 'fw: ', '')
+                  )) = LOWER(TRIM(
+                      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                          LOWER(emails.subject),
+                          'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
+                          're: ', ''), 'fwd: ', ''), 'fw: ', '')
+                  ))
+                ORDER BY candidate.date ASC, candidate.id ASC
+                LIMIT 1
+            )
+            WHERE emails.thread_id IS NOT NULL
+              AND emails.in_reply_to IS NULL
+              AND (emails.email_references IS NULL OR TRIM(emails.email_references) = '')
+              AND emails.subject IS NOT NULL
+              AND TRIM(emails.subject) != ''
+              AND EXISTS (
+                  SELECT 1
+                  FROM emails candidate
+                  WHERE candidate.id != emails.id
+                    AND candidate.thread_id IS NOT NULL
+                    AND LOWER(TRIM(
+                        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                            LOWER(candidate.subject),
+                            'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
+                            're: ', ''), 'fwd: ', ''), 'fw: ', '')
+                    )) = LOWER(TRIM(
+                        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                            LOWER(emails.subject),
+                            'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
+                            're: ', ''), 'fwd: ', ''), 'fw: ', '')
+                    ))
+              );
+
+            -- When an RFC-threaded message is inserted, keep its RFC-derived
+            -- thread id, but canonicalize it to the parent's stored thread id
+            -- when the parent is already known. For headerless messages, use
+            -- the earliest matching normalized subject as the final fallback.
+            CREATE TRIGGER IF NOT EXISTS emails_thread_resolution_after_insert
+            AFTER INSERT ON emails
+            BEGIN
+                UPDATE emails
+                SET thread_id = COALESCE(
+                    (
+                        SELECT parent.thread_id
+                        FROM emails parent
+                        WHERE parent.message_id = NEW.thread_id
+                          AND parent.thread_id IS NOT NULL
+                        ORDER BY parent.date ASC, parent.id ASC
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT candidate.thread_id
+                        FROM emails candidate
+                        WHERE candidate.id != NEW.id
+                          AND candidate.thread_id IS NOT NULL
+                          AND LOWER(TRIM(
+                              REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                                  LOWER(candidate.subject),
+                                  'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
+                                  're: ', ''), 'fwd: ', ''), 'fw: ', '')
+                          )) = LOWER(TRIM(
+                              REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                                  LOWER(NEW.subject),
+                                  'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
+                                  're: ', ''), 'fwd: ', ''), 'fw: ', '')
+                          ))
+                        ORDER BY candidate.date ASC, candidate.id ASC
+                        LIMIT 1
+                    ),
+                    NEW.thread_id
+                )
+                WHERE id = NEW.id
+                  AND NEW.subject IS NOT NULL
+                  AND TRIM(NEW.subject) != '';
+            END;
+        `),
+	},
 ];
