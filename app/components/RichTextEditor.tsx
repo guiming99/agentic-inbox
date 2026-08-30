@@ -27,6 +27,7 @@ import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback, useEffect } from "react";
+import { SignatureAsset, SignatureRow } from "./SignatureLayout";
 
 interface RichTextEditorProps {
 	value: string;
@@ -40,6 +41,8 @@ export default function RichTextEditor({
 	const editor = useEditor({
 		extensions: [
 			StarterKit,
+			SignatureAsset,
+			SignatureRow,
 			Underline,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			LinkExtension.configure({ openOnClick: false }),
