@@ -150,15 +150,8 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				onBack={closePanel}
 				onSendDraft={() => handleSendDraft()}
 				onEditDraft={() => handleEditDraft()}
-				onReply={() =>
-					startCompose({ mode: "reply", originalEmail: lastReceivedMessage })
-				}
-				onReplyAll={() =>
-					startCompose({
-						mode: "reply-all",
-						originalEmail: lastReceivedMessage,
-					})
-				}
+				onReply={() => startCompose({ mode: "reply", originalEmail: lastReceivedMessage })}
+				onReplyAll={() => startCompose({ mode: "reply-all", originalEmail: lastReceivedMessage })}
 				onForward={() => startCompose({ mode: "forward", originalEmail: email })}
 				onToggleStar={toggleStar}
 				onToggleRead={() => {
@@ -196,14 +189,14 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 								isSending={isDraft ? isSending : false}
 								isExpanded={expandedMessages.has(msg.id)}
 								onToggleExpand={() => toggleExpand(msg.id)}
+								onReply={!isDraft ? () => startCompose({ mode: "reply", originalEmail: msg }) : undefined}
+								onReplyAll={!isDraft ? () => startCompose({ mode: "reply-all", originalEmail: msg }) : undefined}
 								onForward={!isDraft ? () => startCompose({ mode: "forward", originalEmail: msg }) : undefined}
 								onSendDraft={isDraft ? () => handleSendDraft(msg) : undefined}
 								onEditDraft={isDraft ? () => handleEditDraft(msg) : undefined}
 								onDeleteDraft={isDraft ? () => handleDeleteDraft(msg) : undefined}
 								onViewSource={() => setSourceViewEmail(msg)}
-								onPreviewImage={(url, filename) =>
-									setPreviewImage({ url, filename })
-								}
+								onPreviewImage={(url, filename) => setPreviewImage({ url, filename })}
 							/>
 						);
 					})
@@ -211,9 +204,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					<SingleMessageView
 						email={email}
 						mailboxId={mailboxId}
-						onPreviewImage={(url, filename) =>
-							setPreviewImage({ url, filename })
-						}
+						onPreviewImage={(url, filename) => setPreviewImage({ url, filename })}
 					/>
 				)}
 			</div>
