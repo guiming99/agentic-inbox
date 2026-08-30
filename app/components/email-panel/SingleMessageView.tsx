@@ -2,6 +2,12 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { Button, Tooltip } from "@cloudflare/kumo";
+import {
+	ArrowBendUpLeftIcon,
+	ArrowBendUpRightIcon,
+	ChatCircleIcon,
+} from "@phosphor-icons/react";
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
 import { formatDetailDate, rewriteInlineImages } from "~/lib/utils";
@@ -10,12 +16,18 @@ import type { Email } from "~/types";
 interface SingleMessageViewProps {
 	email: Email;
 	mailboxId?: string;
+	onReply?: () => void;
+	onReplyAll?: () => void;
+	onForward?: () => void;
 	onPreviewImage: (url: string, filename: string) => void;
 }
 
 export default function SingleMessageView({
 	email,
 	mailboxId,
+	onReply,
+	onReplyAll,
+	onForward,
 	onPreviewImage,
 }: SingleMessageViewProps) {
 	return (
@@ -41,9 +53,26 @@ export default function SingleMessageView({
 )}
 						</div>
 					</div>
-					<span className="text-xs text-kumo-subtle shrink-0">
-						{formatDetailDate(email.date)}
-					</span>
+					<div className="flex items-center gap-1 shrink-0">
+						<span className="text-xs text-kumo-subtle">
+							{formatDetailDate(email.date)}
+						</span>
+						{onReply && (
+							<Tooltip content="Reply to this message" side="bottom" asChild>
+								<Button variant="ghost" shape="square" size="sm" icon={<ArrowBendUpLeftIcon size={14} />} onClick={onReply} aria-label="Reply to this message" className="!h-6 !w-6" />
+							</Tooltip>
+						)}
+						{onReplyAll && (
+							<Tooltip content="Reply all to this message" side="bottom" asChild>
+								<Button variant="ghost" shape="square" size="sm" icon={<ChatCircleIcon size={14} />} onClick={onReplyAll} aria-label="Reply all to this message" className="!h-6 !w-6" />
+							</Tooltip>
+						)}
+						{onForward && (
+							<Tooltip content="Forward this message" side="bottom" asChild>
+								<Button variant="ghost" shape="square" size="sm" icon={<ArrowBendUpRightIcon size={14} />} onClick={onForward} aria-label="Forward this message" className="!h-6 !w-6" />
+							</Tooltip>
+						)}
+					</div>
 				</div>
 			</div>
 
