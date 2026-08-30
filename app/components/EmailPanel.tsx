@@ -196,6 +196,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 								isSending={isDraft ? isSending : false}
 								isExpanded={expandedMessages.has(msg.id)}
 								onToggleExpand={() => toggleExpand(msg.id)}
+								onForward={!isDraft ? () => startCompose({ mode: "forward", originalEmail: msg }) : undefined}
 								onSendDraft={isDraft ? () => handleSendDraft(msg) : undefined}
 								onEditDraft={isDraft ? () => handleEditDraft(msg) : undefined}
 								onDeleteDraft={isDraft ? () => handleDeleteDraft(msg) : undefined}
