@@ -75,14 +75,6 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		return ids;
 	}, [allMessages, isDraftFolder, emailId]);
 
-	const lastReceivedMessage = useMemo(() => {
-		const ce = currentMailbox?.email;
-		const received = allMessages.filter((msg) => !draftMessageIds.has(msg.id) && msg.sender !== ce);
-		if (received.length > 0) return received[0];
-		const nonDrafts = allMessages.filter((msg) => !draftMessageIds.has(msg.id));
-		return nonDrafts.length > 0 ? nonDrafts[0] : email;
-	}, [allMessages, draftMessageIds, currentMailbox?.email, email]);
-
 	const moveToFolders = useMemo(() => { const cur = folder || email?.folder_id; return folders.filter((f) => f.id !== cur); }, [folders, folder, email?.folder_id]);
 
 	if (!email) return <EmailPanelSkeleton />;
@@ -150,16 +142,6 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				onBack={closePanel}
 				onSendDraft={() => handleSendDraft()}
 				onEditDraft={() => handleEditDraft()}
-				onReply={() =>
-					startCompose({ mode: "reply", originalEmail: lastReceivedMessage })
-				}
-				onReplyAll={() =>
-					startCompose({
-						mode: "reply-all",
-						originalEmail: lastReceivedMessage,
-					})
-				}
-				onForward={() => startCompose({ mode: "forward", originalEmail: email })}
 				onToggleStar={toggleStar}
 				onToggleRead={() => {
 					if (mailboxId) {
@@ -196,6 +178,9 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 								isSending={isDraft ? isSending : false}
 								isExpanded={expandedMessages.has(msg.id)}
 								onToggleExpand={() => toggleExpand(msg.id)}
+								onReply={!isDraft ? () => startCompose({ mode: "reply", originalEmail: msg }) : undefined}
+								onReplyAll={!isDraft ? () => startCompose({ mode: "reply-all", originalEmail: msg }) : undefined}
+								onForward={!isDraft ? () => startCompose({ mode: "forward", originalEmail: msg }) : undefined}
 								onSendDraft={isDraft ? () => handleSendDraft(msg) : undefined}
 								onEditDraft={isDraft ? () => handleEditDraft(msg) : undefined}
 								onDeleteDraft={isDraft ? () => handleDeleteDraft(msg) : undefined}
