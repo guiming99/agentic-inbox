@@ -5,10 +5,7 @@
 import { Button, Tooltip } from "@cloudflare/kumo";
 import { useEffect, useRef, useState } from "react";
 import {
-	ArrowBendUpLeftIcon,
-	ArrowBendUpRightIcon,
 	ArrowLeftIcon,
-	ChatCircleIcon,
 	CodeIcon,
 	EnvelopeOpenIcon,
 	EnvelopeSimpleIcon,
@@ -50,9 +47,6 @@ export default function EmailPanelToolbar({
 	onBack,
 	onSendDraft,
 	onEditDraft,
-	onReply,
-	onReplyAll,
-	onForward,
 	onToggleStar,
 	onToggleRead,
 	onMove,
@@ -91,40 +85,7 @@ export default function EmailPanelToolbar({
 						Edit
 					</Button>
 				</>
-			) : (
-				<>
-					<Tooltip content="Reply" side="bottom" asChild>
-						<Button
-							variant="ghost"
-							shape="square"
-							size="sm"
-							icon={<ArrowBendUpLeftIcon size={18} />}
-							onClick={onReply}
-							aria-label="Reply"
-						/>
-					</Tooltip>
-					<Tooltip content="Reply All" side="bottom" asChild>
-						<Button
-							variant="ghost"
-							shape="square"
-							size="sm"
-							icon={<ChatCircleIcon size={18} />}
-							onClick={onReplyAll}
-							aria-label="Reply All"
-						/>
-					</Tooltip>
-					<Tooltip content="Forward" side="bottom" asChild>
-						<Button
-							variant="ghost"
-							shape="square"
-							size="sm"
-							icon={<ArrowBendUpRightIcon size={18} />}
-							onClick={onForward}
-							aria-label="Forward"
-						/>
-					</Tooltip>
-				</>
-			)}
+			) : null}
 
 			<div className="h-5 w-px bg-kumo-fill mx-0.5" />
 
