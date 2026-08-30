@@ -7,6 +7,7 @@ import { Node } from "@tiptap/core";
  */
 export const SignatureAsset = Node.create({
 	name: "signatureAsset",
+	priority: 1100,
 	inline: true,
 	group: "inline",
 	atom: true,
@@ -74,20 +75,33 @@ export const SignatureAsset = Node.create({
 				style: outerStyle,
 			},
 			["img", imageAttrs],
-			...(label ? [["span", { "data-signature-label": "", style: "display:block;font-size:11px;line-height:16px;margin-top:4px;text-align:center;white-space:nowrap;" }, label]] : []),
+			...(label
+				? [[
+					"span",
+					{
+						"data-signature-label": "",
+						style: "display:block;font-size:11px;line-height:16px;margin-top:4px;text-align:center;white-space:nowrap;",
+					},
+					label,
+				]]
+				: []),
 		];
 	},
 });
 
 export const SignatureRow = Node.create({
 	name: "signatureRow",
+	priority: 1100,
 	group: "block",
 	content: "signatureAsset*",
 	isolating: true,
 	defining: true,
 
 	parseHTML() {
-		return [{ tag: 'p[data-signature-row="true"]' }, { tag: 'div[data-signature-row="true"]' }];
+		return [
+			{ tag: 'p[data-signature-row="true"]' },
+			{ tag: 'div[data-signature-row="true"]' },
+		];
 	},
 
 	renderHTML() {
