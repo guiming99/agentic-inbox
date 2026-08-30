@@ -16,6 +16,8 @@ const api={
  deleteMailbox:(mailboxId:string)=>del<void>(`/api/v1/mailboxes/${mailboxId}`),
  uploadSignatureLogo:(mailboxId:string,file:File)=>{const form=new FormData();form.append("file",file);return post<{key:string;url:string}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-logo`,form);},
  deleteSignatureLogo:(mailboxId:string)=>del<{ok:boolean}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-logo`),
+ uploadSignatureQr:(mailboxId:string,kind:"whatsapp"|"telegram",file:File)=>{const form=new FormData();form.append("file",file);return post<{key:string;url:string}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-qr/${kind}`,form);},
+ deleteSignatureQr:(mailboxId:string,kind:"whatsapp"|"telegram")=>del<{ok:boolean}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-qr/${kind}`),
  listEmails:(mailboxId:string,params:Record<string,string>,opts?:{signal?:AbortSignal})=>get<EmailListResponse|Email[]>(`/api/v1/mailboxes/${mailboxId}/emails`,{params,signal:opts?.signal}),
  sendEmail:(mailboxId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails`,email),
  getEmail:(mailboxId:string,id:string,opts?:{signal?:AbortSignal})=>get<Email>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`,{signal:opts?.signal}),
