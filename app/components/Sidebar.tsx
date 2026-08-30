@@ -3,7 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Badge, Button, Dialog, Input, Tooltip } from "@cloudflare/kumo";
-import { AddressBookIcon, ArchiveIcon, CaretLeftIcon, FileIcon, FolderIcon, PaperPlaneTiltIcon, PencilSimpleIcon, PlusIcon, TrashIcon, TrayIcon } from "@phosphor-icons/react";
+import { AddressBookIcon, ArchiveIcon, CaretLeftIcon, FileIcon, FolderIcon, PaperPlaneTiltIcon, PencilSimpleIcon, PlusIcon, TrashIcon, TrayIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router";
 import { Folders, SYSTEM_FOLDER_IDS } from "shared/folders";
@@ -11,8 +11,8 @@ import { useCreateFolder, useFolders } from "~/queries/folders";
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
 
-const FOLDER_ICONS: Record<string, React.ReactNode> = { [Folders.INBOX]: <TrayIcon size={18}/>, [Folders.SENT]: <PaperPlaneTiltIcon size={18}/>, [Folders.DRAFT]: <FileIcon size={18}/>, [Folders.ARCHIVE]: <ArchiveIcon size={18}/>, [Folders.TRASH]: <TrashIcon size={18}/> };
-const SYSTEM_FOLDER_LINKS = [{ id: Folders.INBOX, label: "Inbox" }, { id: Folders.SENT, label: "Sent" }, { id: Folders.DRAFT, label: "Drafts" }, { id: Folders.ARCHIVE, label: "Archive" }, { id: Folders.TRASH, label: "Trash" }];
+const FOLDER_ICONS: Record<string, React.ReactNode> = { [Folders.INBOX]: <TrayIcon size={18}/>, [Folders.SENT]: <PaperPlaneTiltIcon size={18}/>, [Folders.DRAFT]: <FileIcon size={18}/>, [Folders.ARCHIVE]: <ArchiveIcon size={18}/>, [Folders.TRASH]: <TrashIcon size={18}/>, [Folders.SPAM]: <WarningCircleIcon size={18}/> };
+const SYSTEM_FOLDER_LINKS = [{ id: Folders.INBOX, label: "Inbox" }, { id: Folders.SENT, label: "Sent" }, { id: Folders.DRAFT, label: "Drafts" }, { id: Folders.ARCHIVE, label: "Archive" }, { id: Folders.TRASH, label: "Trash" }, { id: Folders.SPAM, label: "Spam" }];
 interface FolderLinkProps { to:string; icon:React.ReactNode; label:string; unreadCount?:number; onClick?:()=>void; }
 function FolderLink({to,icon,label,unreadCount,onClick}:FolderLinkProps){ return <NavLink to={to} onClick={onClick} className={({isActive})=>`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors ${isActive?"bg-kumo-fill font-semibold text-kumo-default":"text-kumo-strong hover:bg-kumo-tint"}`}><span>{icon}</span><span className="truncate flex-1">{label}</span>{unreadCount!=null&&unreadCount>0&&<Badge variant="secondary">{unreadCount}</Badge>}</NavLink>; }
 
