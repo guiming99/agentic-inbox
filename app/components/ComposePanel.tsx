@@ -6,6 +6,8 @@ import { Banner, Button, Input } from "@cloudflare/kumo";
 import { FileIcon, FloppyDiskIcon, PaperclipIcon, PaperPlaneTiltIcon, XIcon } from "@phosphor-icons/react";
 import { useParams } from "react-router";
 import { useComposeForm } from "~/hooks/useComposeForm";
+import { useMailbox } from "~/queries/mailboxes";
+import ContactRecipientInput, { contactsFromSettings } from "./ContactRecipientInput";
 import RichTextEditor from "./RichTextEditor";
 
 function formatSize(bytes: number) {
@@ -19,6 +21,8 @@ export default function ComposePanel() {
 		mailboxId: string;
 		folder: string;
 	}>();
+	const { data: mailbox } = useMailbox(mailboxId);
+	const contacts = contactsFromSettings((mailbox?.settings as any)?.contacts);
 
 	const {
 		to,
@@ -78,14 +82,7 @@ export default function ComposePanel() {
 								To
 							</label>
 							<div className="flex-1 flex items-center gap-2 min-w-0">
-								<Input
-									type="text"
-									placeholder="recipient@example.com"
-									size="sm"
-									value={to}
-									onChange={(e) => setTo(e.target.value)}
-									required
-								/>
+								<ContactRecipientInput value={to} onChange={setTo} contacts={contacts} placeholder="Search contacts or enter email address" required />
 								{!showCcBcc && (
 									<button
 										type="button"
@@ -102,7 +99,7 @@ export default function ComposePanel() {
 							<div className="flex items-center gap-2">
 								<label className="text-sm font-medium text-kumo-subtle w-14 shrink-0">CC</label>
 								<div className="flex-1">
-									<Input type="text" size="sm" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="Separate multiple addresses with commas" />
+									<ContactRecipientInput value={cc} onChange={setCc} contacts={contacts} placeholder="Search contacts or enter email address" />
 								</div>
 							</div>
 						)}
@@ -111,7 +108,7 @@ export default function ComposePanel() {
 							<div className="flex items-center gap-2">
 								<label className="text-sm font-medium text-kumo-subtle w-14 shrink-0">BCC</label>
 								<div className="flex-1">
-									<Input type="text" size="sm" value={bcc} onChange={(e) => setBcc(e.target.value)} placeholder="Separate multiple addresses with commas" />
+									<ContactRecipientInput value={bcc} onChange={setBcc} contacts={contacts} placeholder="Search contacts or enter email address" />
 								</div>
 							</div>
 						)}

@@ -6,6 +6,8 @@ import { Banner, Button, Dialog, Input, Text } from "@cloudflare/kumo";
 import { FileIcon, PaperclipIcon, PaperPlaneTiltIcon, XIcon, FloppyDiskIcon } from "@phosphor-icons/react";
 import { useParams } from "react-router";
 import { useComposeForm } from "~/hooks/useComposeForm";
+import { useMailbox } from "~/queries/mailboxes";
+import ContactRecipientInput, { contactsFromSettings } from "./ContactRecipientInput";
 import RichTextEditor from "./RichTextEditor";
 import { useUIStore } from "~/hooks/useUIStore";
 
@@ -18,6 +20,8 @@ function formatSize(bytes: number) {
 export default function ComposeEmail() {
 	const { mailboxId, folder } = useParams<{ mailboxId: string; folder: string }>();
 	const { isComposeModalOpen, closeComposeModal } = useUIStore();
+	const { data: mailbox } = useMailbox(mailboxId);
+	const contacts = contactsFromSettings((mailbox?.settings as any)?.contacts);
 	const {
 		to, setTo, cc, setCc, bcc, setBcc, showCcBcc, setShowCcBcc,
 		subject, setSubject, body, setBody, attachments, addAttachments, removeAttachment,
@@ -31,11 +35,11 @@ export default function ComposeEmail() {
 				<form onSubmit={(e) => handleSend(e, closeComposeModal)} className="space-y-4">
 					{error && <Banner variant="error" text={error} />}
 					<div className="flex items-center gap-2">
-						<div className="flex-1"><Input label="To" type="text" placeholder="recipient@example.com, another@example.com" size="sm" value={to} onChange={(e) => setTo(e.target.value)} required /></div>
+						<div className="flex-1"><ContactRecipientInput label="To" placeholder="Search contacts or enter email address" value={to} onChange={setTo} contacts={contacts} required /></div>
 						{!showCcBcc && <button type="button" onClick={() => setShowCcBcc(true)} className="shrink-0 text-xs text-kumo-link hover:text-kumo-link-hover font-medium mt-5">CC / BCC</button>}
 					</div>
-					{showCcBcc && <Input label="CC" type="text" size="sm" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="Separate multiple addresses with commas" />}
-					{showCcBcc && <Input label="BCC" type="text" size="sm" value={bcc} onChange={(e) => setBcc(e.target.value)} placeholder="Separate multiple addresses with commas" />}
+					{showCcBcc && <ContactRecipientInput label="CC" value={cc} onChange={setCc} contacts={contacts} placeholder="Search contacts or enter email address" />}
+					{showCcBcc && <ContactRecipientInput label="BCC" value={bcc} onChange={setBcc} contacts={contacts} placeholder="Search contacts or enter email address" />}
 					<Input label="Subject" type="text" placeholder="Email subject" size="sm" value={subject} onChange={(e) => setSubject(e.target.value)} required />
 					<div><Text size="sm" DANGEROUS_className="font-medium mb-1.5 block">Message</Text><RichTextEditor value={body} onChange={setBody} /></div>
 
