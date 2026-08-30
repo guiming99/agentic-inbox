@@ -4,8 +4,11 @@
 
 import { Badge, Button, Tooltip } from "@cloudflare/kumo";
 import {
+	ArrowBendUpLeftIcon,
+	ArrowBendUpRightIcon,
 	CaretDownIcon,
 	CaretUpIcon,
+	ChatCircleIcon,
 	CodeIcon,
 	PaperPlaneTiltIcon,
 	PencilSimpleIcon,
@@ -30,6 +33,9 @@ interface ThreadMessageProps {
 	isSending?: boolean;
 	isExpanded: boolean;
 	onToggleExpand: () => void;
+	onReply?: () => void;
+	onReplyAll?: () => void;
+	onForward?: () => void;
 	onSendDraft?: () => void;
 	onEditDraft?: () => void;
 	onDeleteDraft?: () => void;
@@ -62,6 +68,9 @@ export default function ThreadMessage({
 	isSending,
 	isExpanded,
 	onToggleExpand,
+	onReply,
+	onReplyAll,
+	onForward,
 	onSendDraft,
 	onEditDraft,
 	onDeleteDraft,
@@ -137,6 +146,45 @@ export default function ThreadMessage({
 						<span className="text-xs text-kumo-subtle">
 							{formatShortDate(email.date)}
 						</span>
+						{!isDraft && onReply && (
+							<Tooltip content="Reply to this message" side="bottom" asChild>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<ArrowBendUpLeftIcon size={14} />}
+									onClick={onReply}
+									aria-label="Reply to this message"
+									className="transition-opacity !h-6 !w-6"
+								/>
+							</Tooltip>
+						)}
+						{!isDraft && onReplyAll && (
+							<Tooltip content="Reply all to this message" side="bottom" asChild>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<ChatCircleIcon size={14} />}
+									onClick={onReplyAll}
+									aria-label="Reply all to this message"
+									className="transition-opacity !h-6 !w-6"
+								/>
+							</Tooltip>
+						)}
+						{!isDraft && onForward && (
+							<Tooltip content="Forward this message" side="bottom" asChild>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<ArrowBendUpRightIcon size={14} />}
+									onClick={onForward}
+									aria-label="Forward this message"
+									className="transition-opacity !h-6 !w-6"
+								/>
+							</Tooltip>
+						)}
 						{onViewSource && (
 							<Tooltip content="View source" side="bottom" asChild>
 								<Button
