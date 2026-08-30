@@ -4,6 +4,7 @@
 
 import { Badge, Button, Tooltip } from "@cloudflare/kumo";
 import {
+	ArrowBendUpRightIcon,
 	CaretDownIcon,
 	CaretUpIcon,
 	CodeIcon,
@@ -30,6 +31,7 @@ interface ThreadMessageProps {
 	isSending?: boolean;
 	isExpanded: boolean;
 	onToggleExpand: () => void;
+	onForward?: () => void;
 	onSendDraft?: () => void;
 	onEditDraft?: () => void;
 	onDeleteDraft?: () => void;
@@ -62,6 +64,7 @@ export default function ThreadMessage({
 	isSending,
 	isExpanded,
 	onToggleExpand,
+	onForward,
 	onSendDraft,
 	onEditDraft,
 	onDeleteDraft,
@@ -137,6 +140,19 @@ export default function ThreadMessage({
 						<span className="text-xs text-kumo-subtle">
 							{formatShortDate(email.date)}
 						</span>
+						{onForward && !isDraft && (
+							<Tooltip content="Forward this message" side="bottom" asChild>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<ArrowBendUpRightIcon size={14} />}
+									onClick={onForward}
+									aria-label="Forward this message"
+									className="transition-opacity !h-6 !w-6"
+								/>
+							</Tooltip>
+						)}
 						{onViewSource && (
 							<Tooltip content="View source" side="bottom" asChild>
 								<Button
