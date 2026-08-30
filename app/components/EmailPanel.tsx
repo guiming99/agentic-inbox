@@ -62,10 +62,8 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		return [email, ...threadReplies].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 	}, [email, threadReplies]);
 
-	// Reset expanded state only when the selected email changes, not on every refetch.
-	// Using allMessages as a dependency would reset user expand/collapse state on background refetches.
 	const currentEmailId = email?.id;
-	useEffect(() => { if (allMessages.length > 1) setExpandedMessages(new Set([allMessages[0].id])); }, [currentEmailId]); // eslint-disable-line react-hooks/exhaustive-deps
+	useEffect(() => { if (allMessages.length > 1) setExpandedMessages(new Set([allMessages[0].id])); }, [currentEmailId]);
 
 	const toggleExpand = (msgId: string) => { setExpandedMessages((prev) => { const next = new Set(prev); if (next.has(msgId)) next.delete(msgId); else next.add(msgId); return next; }); };
 
@@ -150,9 +148,6 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				onBack={closePanel}
 				onSendDraft={() => handleSendDraft()}
 				onEditDraft={() => handleEditDraft()}
-				onReply={() => startCompose({ mode: "reply", originalEmail: lastReceivedMessage })}
-				onReplyAll={() => startCompose({ mode: "reply-all", originalEmail: lastReceivedMessage })}
-				onForward={() => startCompose({ mode: "forward", originalEmail: email })}
 				onToggleStar={toggleStar}
 				onToggleRead={() => {
 					if (mailboxId) {
