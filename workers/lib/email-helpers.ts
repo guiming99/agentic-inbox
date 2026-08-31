@@ -124,7 +124,7 @@ export function resolveThreadId(
 	references: string[] = [],
 	inReplyTo?: string | null,
 ): string {
-	return references[0] || inReplyTo || messageId;
+	return inReplyTo || references[references.length - 1] || messageId;
 }
 
 /**
