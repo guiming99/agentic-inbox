@@ -3,7 +3,7 @@ import { formatQuotedDate } from "shared/dates";
 import type { Attachment } from "~/types";
 export { formatListDate, formatDetailDate, formatShortDate } from "shared/dates";
 export const formatComposeDate=formatQuotedDate;
-export function formatBytes(bytes:number,decimals=1){if(bytes===0)return "0 B";const k=1024,dm=decimals<0?0:decimals,sizes=["B","KB","MB","GB"],i=Math.floor(Math.log(bytes)/Math.log(k));return `${Number.parseFloat((bytes/Math.pow(bytes,k)).toFixed(dm))} ${sizes[i]}`;}
+export function formatBytes(bytes:number,decimals=1){if(bytes===0)return "0 B";const k=1024,dm=decimals<0?0:decimals,sizes=["B","KB","MB","GB"],i=Math.floor(Math.log(bytes)/Math.log(k));return `${Number.parseFloat((bytes/Math.pow(k,i)).toFixed(dm))} ${sizes[i]}`;}
 export function splitEmailList(value?:string|null):string[]{return(value||"").split(",").map(e=>e.trim()).filter(Boolean);}
 export function toEmailListValue(addresses:string[]):string|string[]|undefined{return addresses.length===0?undefined:addresses.length===1?addresses[0]:addresses;}
 export function htmlToPlainText(html:string):string{const sanitized=DOMPurify.sanitize(html);const div=document.createElement("div");div.innerHTML=sanitized.replace(/<style[^>]*>[\s\S]*?<\/style>/gi,"").replace(/<br\s*\/?>/gi,"\n").replace(/<\/p>/gi,"\n\n").replace(/<p[^>]*>/gi,"").replace(/<div[^>]*>/gi,"").replace(/<\/div>/gi,"\n");return(div.textContent||div.innerText||"").trim();}
