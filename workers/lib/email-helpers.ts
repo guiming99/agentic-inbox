@@ -117,14 +117,14 @@ export function buildReferencesChain(original: EmailFull): {
 
 /**
  * Resolve a conversation thread id using RFC email threading headers.
- * Priority: References[0] -> In-Reply-To -> current Message-ID.
+ * Priority: In-Reply-To -> last References entry -> current Message-ID.
  */
 export function resolveThreadId(
 	messageId: string,
 	references: string[] = [],
 	inReplyTo?: string | null,
 ): string {
-	return references[0] || inReplyTo || messageId;
+	return inReplyTo || references[references.length - 1] || messageId;
 }
 
 /**
