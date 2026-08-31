@@ -3,7 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Badge, Button, Dialog, Input, Tooltip } from "@cloudflare/kumo";
-import { AddressBookIcon, ArchiveIcon, CaretLeftIcon, FileIcon, FolderIcon, PaperPlaneTiltIcon, PencilSimpleIcon, PlusIcon, TrashIcon, TrayIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { AddressBookIcon, ArchiveIcon, CaretLeftIcon, FileIcon, FolderIcon, PaperPlaneTiltIcon, PencilSimpleIcon, PlusIcon, StarIcon, TrashIcon, TrayIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router";
 import { Folders, SYSTEM_FOLDER_IDS } from "shared/folders";
@@ -24,6 +24,7 @@ export default function Sidebar(){
  return <aside className="h-full w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line"><div className="px-4 pt-4 pb-1"><button type="button" onClick={()=>{navigate("/");closeSidebar();}} className="flex items-center gap-1.5 text-kumo-subtle text-sm hover:text-kumo-default mb-2.5"><CaretLeftIcon size={14}/><span>Mailboxes</span></button><div className="px-1"><div className="text-base font-semibold text-kumo-default truncate">{displayName}</div><div className="text-sm text-kumo-subtle truncate mt-0.5">{currentMailbox?.email||mailboxId}</div></div></div>
  <div className="px-3 py-3"><Button variant="primary" icon={<PencilSimpleIcon size={16}/>} onClick={()=>startCompose()} className="w-full">Compose</Button></div>
  <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">{SYSTEM_FOLDER_LINKS.map(f=><FolderLink key={f.id} to={`/mailbox/${mailboxId}/emails/${f.id}`} icon={FOLDER_ICONS[f.id]} label={f.label} unreadCount={getUnreadCount(f.id)} onClick={closeSidebar}/>)}
+  <div className="pt-3"><NavLink to={`/mailbox/${mailboxId}/search?q=is:starred`} onClick={closeSidebar} className={({isActive})=>`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors ${isActive&&location.pathname.endsWith("/search")?"bg-kumo-fill font-semibold text-kumo-default":"text-kumo-strong hover:bg-kumo-tint"}`}><StarIcon size={18} weight="fill"/><span>Starred</span></NavLink></div>
   <div className="pt-5"><NavLink to={`/mailbox/${mailboxId}/contacts`} onClick={closeSidebar} className={({isActive})=>`flex items-center gap-3 py-2 px-3 rounded-md text-sm ${isActive?"bg-kumo-fill font-semibold text-kumo-default":"text-kumo-strong hover:bg-kumo-tint"}`}><AddressBookIcon size={18}/><span>Contacts</span></NavLink></div>
   <div className="pt-5"><div className="flex items-center justify-between px-3 mb-1.5"><span className="text-xs uppercase tracking-wider font-semibold text-kumo-subtle">Folders</span><Tooltip content="New folder" asChild><Button variant="ghost" shape="square" size="sm" icon={<PlusIcon size={16}/>} onClick={()=>setIsCreateFolderOpen(true)} aria-label="Create new folder"/></Tooltip></div>{customFolders.map(f=><FolderLink key={f.id} to={`/mailbox/${mailboxId}/emails/${f.id}`} icon={<FolderIcon size={18}/>} label={f.name} unreadCount={f.unreadCount} onClick={closeSidebar}/>)}</div>
  </nav>
