@@ -239,12 +239,18 @@ export class MailboxDO extends DurableObject<Env> {
 		if (isDraftFolder) {
 			const result = this.ctx.storage.sql.exec(
 				`WITH
-				folder_emails AS (
-					SELECT *,
-						COALESCE(in_reply_to, id) as draft_group_key
-					FROM emails
-					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
-				),
+				all_thread_emails AS (
+    SELECT *,
+        COALESCE(thread_id, id) as raw_thread_id,
+        ${NORMALIZED_SUBJECT_SQL} as normalized_subject
+    FROM emails
+),
+
+folder_emails AS (
+    SELECT *
+    FROM all_thread_emails
+    WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
+),
 				draft_stats AS (
 					SELECT
 						draft_group_key,
@@ -314,24 +320,17 @@ export class MailboxDO extends DurableObject<Env> {
 					e.*,
 					COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
 				FROM emails e
-				LEFT JOIN thread_to_conversation tc
-					ON COALESCE(e.thread_id, e.id) = tc.raw_thread_id
-			),
-			conversation_stats AS (
-				SELECT
-					conversation_id,
-					COUNT(*) as thread_count,
-					SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as thread_unread_count,
-					SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) as thread_read_count,
-					GROUP_CONCAT(DISTINCT sender) as participants,
-					SUM(CASE WHEN folder_id = (SELECT id FROM folders WHERE name = 'draft' LIMIT 1) THEN 1 ELSE 0 END) as has_draft
-				FROM all_emails_with_conversation
-				WHERE conversation_id IN (
-					SELECT DISTINCT conversation_id FROM all_emails_with_conversation
-					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
-				)
-				GROUP BY conversation_id
-			),
+				LEFT JOIN thread_to_conversation AS (
+    SELECT
+        raw_thread_id,
+        normalized_subject,
+        CASE
+            WHEN thread_id IS NOT NULL THEN raw_thread_id
+            ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject)
+        END as conversation_id
+    FROM all_thread_emails
+    GROUP BY raw_thread_id, normalized_subject, thread_id
+),
 			latest_message_per_conversation AS (
 				SELECT
 					conversation_id,
