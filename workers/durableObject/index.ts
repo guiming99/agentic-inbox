@@ -296,7 +296,7 @@ export class MailboxDO extends DurableObject<Env> {
 					COALESCE(thread_id, id) as raw_thread_id,
 					${NORMALIZED_SUBJECT_SQL} as normalized_subject
 				FROM emails
-				WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
+				
 			),
 			thread_to_conversation AS (
 				SELECT
