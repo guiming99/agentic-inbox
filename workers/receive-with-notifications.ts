@@ -135,16 +135,16 @@ export async function receiveEmailWithNotifications(
 	const parsed = await new PostalMime().parse(raw);
 	const mailboxId = findMailbox(parsed, env, event.to);
 	if (!mailboxId) {
-		await receiveEmail({ raw: new Response(raw).body!, rawSize: raw.byteLength, to: event.to }, env, ctx);
+		await receiveEmail({ rawBuffer: raw, parsed, to: event.to }, env, ctx);
 		return;
 	}
 
 	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) {
-		await receiveEmail({ raw: new Response(raw).body!, rawSize: raw.byteLength, to: event.to }, env, ctx);
+		await receiveEmail({ rawBuffer: raw, parsed, to: event.to }, env, ctx);
 		return;
 	}
 
-	await receiveEmail({ raw: new Response(raw).body!, rawSize: raw.byteLength, to: event.to }, env, ctx);
+	await receiveEmail({ rawBuffer: raw, parsed, to: event.to }, env, ctx);
 
 	const sender = (parsed.from?.address || "").toLowerCase();
 	const recipients = (parsed.to || [])
