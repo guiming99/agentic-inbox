@@ -95,7 +95,12 @@ export async function receiveEmailWithNotifications(event: ForwardableEvent, env
 	const raw = await readRaw(event.raw, event.rawSize);
 	const parsed = await new PostalMime().parse(raw);
 	const mailboxId = findMailbox(parsed, env, event.to);
-	await receiveEmail({ rawBuffer: raw, parsed, to: event.to }, env, ctx);
+
+	// receiveEmail() still consumes the original IncomingEmailMessage shape.
+	// Pass it a fresh stream so the inbound message is actually persisted.
+	// The parsed copy above is retained for post-delivery work.
+	await receiveEmail({ raw: new Response(raw).body!, rawSize: raw.byteLength, to: event.to }, env, ctx);
+
 	await forwardToGlobalArchive(event, env, raw, extractMessageId(parsed.messageId), parsed);
 	if (!mailboxId) return;
 	const settings = await getPostDeliverySettings(env, mailboxId);
