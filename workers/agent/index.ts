@@ -99,56 +99,9 @@ export class EmailAgent extends AIChatAgent<any> {
   }
 
   async handleNewEmail(emailData: { mailboxId: string; emailId: string; sender: string; subject: string; threadId: string }) {
-    const env = this.env as Env;
-    const workersai = createWorkersAI({ binding: env.AI });
-    const tools = createEmailTools(env, emailData.mailboxId);
-    const systemPrompt = await getSystemPrompt(env, emailData.mailboxId);
-    const stub = getMailboxStub(env, emailData.mailboxId);
-    let emailBody = "";
-    let threadContext = "";
-    try {
-      const email = (await stub.getEmail(emailData.emailId)) as EmailFull | null;
-      if (email?.body) {
-        if (await isPromptInjection(env.AI, email.body)) {
-          console.warn("Skipping auto-draft due to detected prompt injection:", emailData.emailId);
-          return;
-        }
-        emailBody = stripHtmlToText(email.body);
-      }
-      const threadEmails = (await stub.getEmails({ thread_id: emailData.threadId })) as EmailMetadata[];
-      if (threadEmails.length > 1) {
-        const fullThread = await Promise.all(threadEmails.map(async e => { const full = await stub.getEmail(e.id) as EmailFull | null; return { id: e.id, sender: e.sender, recipient: e.recipient, subject: e.subject, date: e.date, folder_id: e.folder_id, body_text: full?.body ? stripHtmlToText(full.body) : "" }; }));
-        fullThread.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        threadContext = fullThread.map(e => `[${e.date}] ${e.sender} → ${e.recipient} (${e.folder_id}): ${e.body_text.substring(0,500)}`).join("\n\n");
-        if (threadContext && await isPromptInjection(env.AI, threadContext)) { console.warn("Skipping auto-draft due to prompt injection in thread context:", emailData.threadId); return; }
-      }
-    } catch (e) { console.warn("Pre-read failed, agent will use tools:", (e as Error).message); }
-    let autoPrompt = `A new email just arrived. Draft an appropriate response using draft_reply.\n\nEmail details:\n- Mailbox: ${emailData.mailboxId}\n- Email ID: ${emailData.emailId}\n- From: ${emailData.sender}\n- Subject: ${emailData.subject}\n- Thread ID: ${emailData.threadId}\n\nEmail body:\n${emailBody || "(could not pre-read — use get_email to read it)"}`;
-    autoPrompt += threadContext ? `\n\nFull thread history (${emailData.threadId}):\n${threadContext}` : `\n\nThis is the first message in the thread (no prior conversation).`;
-    autoPrompt += `\n\nBased on the email content and thread context above, draft a reply using draft_reply. If you need more context, use get_thread with thread ID "${emailData.threadId}".`;
-    const messages = [{ role: "user" as const, content: autoPrompt, parts: [{ type: "text" as const, text: autoPrompt }], createdAt: new Date() }];
-    try {
-      const result = await generateText({ model: workersai("@cf/zai-org/glm-4.7-flash"), system: systemPrompt, messages: await convertToModelMessages(messages), tools, stopWhen: stepCountIs(3) });
-      const draftToolCalled = result.steps.some(step => step.toolCalls.some(tc => tc.toolName === "draft_reply" || tc.toolName === "draft_email"));
-      if (!draftToolCalled && result.text.trim()) {
-        const sanitizedText = await verifyDraft(env.AI, result.text.trim());
-        if (sanitizedText) {
-          const draftId = crypto.randomUUID();
-          const draftStub = getMailboxStub(env, emailData.mailboxId);
-          const reSubject = emailData.subject.startsWith("Re:") ? emailData.subject : `Re: ${emailData.subject}`;
-          await draftStub.createEmail(Folders.DRAFT, { id: draftId, subject: reSubject, sender: emailData.mailboxId.toLowerCase(), recipient: emailData.sender.toLowerCase(), date: new Date().toISOString(), body: /<[a-z][\s\S]*>/i.test(sanitizedText) ? sanitizedText : textToHtml(sanitizedText), in_reply_to: emailData.emailId, email_references: null, thread_id: emailData.threadId }, []);
-        }
-      }
-      const assistantText = draftToolCalled ? `Created draft reply to ${emailData.sender}.` : result.text;
-      const newMessages = [
-        { id: crypto.randomUUID(), role: "user" as const, content: `[Auto-triggered] New email from ${emailData.sender}: "${emailData.subject}"`, createdAt: new Date(), parts: [{ type: "text" as const, text: `[Auto-triggered] New email from ${emailData.sender}: "${emailData.subject}"` }] },
-        { id: crypto.randomUUID(), role: "assistant" as const, content: assistantText, createdAt: new Date(), parts: [{ type: "text" as const, text: assistantText }] },
-      ];
-      await this.persistMessages([...this.messages, ...newMessages]);
-      return { status: "draft_generated", text: result.text };
-    } catch (e) {
-      console.error("Auto-draft failed:", (e as Error).message);
-      return { status: "error", error: (e as Error).message };
-    }
+    // Automatic AI drafting is intentionally disabled. AI is invoked only when the user
+    // explicitly asks for a reply from the existing AgentPanel chat UI.
+    console.log("[AI] automatic draft skipped", { mailboxId: emailData.mailboxId, emailId: emailData.emailId });
+    return { status: "auto_draft_disabled" };
   }
 }
