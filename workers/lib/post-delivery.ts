@@ -46,6 +46,53 @@ function isInternal(delivery: DeliveredEmail, env: Env): boolean {
   return isInternalAddress(sender) && recipients.some(isInternalAddress);
 }
 
+function decodeHtmlEntities(value: string): string {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    apos: "'",
+    gt: ">",
+    lt: "<",
+    nbsp: " ",
+    quot: '"',
+  };
+
+  return value.replace(/&(#(?:x[\da-f]+|\d+)|[a-z][a-z\d]+);/gi, (match, entity: string) => {
+    const lower = entity.toLowerCase();
+    if (namedEntities[lower]) return namedEntities[lower];
+    if (lower.startsWith("#x")) {
+      const codePoint = Number.parseInt(lower.slice(2), 16);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+    if (lower.startsWith("#")) {
+      const codePoint = Number.parseInt(lower.slice(1), 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+    return match;
+  });
+}
+
+function htmlToTelegramText(value: string): string {
+  if (!value) return "";
+
+  let text = value
+    // CSS/JavaScript is not email body text and must never reach Telegram.
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
+    // Preserve natural paragraph/line breaks before stripping the remaining tags.
+    .replace(/<\s*(br|\/p|\/div|\/li|\/tr|\/h[1-6])\s*[^>]*>/gi, "\n")
+    .replace(/<\s*(p|div|li|tr|h[1-6])\b[^>]*>/gi, "")
+    .replace(/<[^>]+>/g, " ");
+
+  text = decodeHtmlEntities(text)
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return text;
+}
+
 function renderForwardBody(email: DeliveredEmail): string {
   return [
     `---------- Forwarded message ----------`,
@@ -59,7 +106,7 @@ function renderForwardBody(email: DeliveredEmail): string {
 }
 
 function telegramText(email: DeliveredEmail): string {
-  const body = (email.body || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const body = htmlToTelegramText(email.body || "");
   const snippet = body.length > 700 ? `${body.slice(0, 700)}…` : body;
   return [
     `📧 New email: ${email.mailboxId}`,
