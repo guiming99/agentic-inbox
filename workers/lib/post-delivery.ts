@@ -75,10 +75,8 @@ function htmlToTelegramText(value: string): string {
   if (!value) return "";
 
   let text = value
-    // CSS/JavaScript is not email body text and must never reach Telegram.
     .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, "")
     .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
-    // Preserve natural paragraph/line breaks before stripping the remaining tags.
     .replace(/<\s*(br|\/p|\/div|\/li|\/tr|\/h[1-6])\s*[^>]*>/gi, "\n")
     .replace(/<\s*(p|div|li|tr|h[1-6])\b[^>]*>/gi, "")
     .replace(/<[^>]+>/g, " ");
@@ -175,18 +173,17 @@ export async function runPostDelivery(
   const telegram = settings.telegram;
   const tasks: Promise<unknown>[] = [];
 
-  if (!internal && forwarding?.enabled && forwarding.email) {
-    const target = forwarding.email.trim().toLowerCase();
+  if ((!internal || forwarding?.includeInternal === true) && forwarding?.enabled && forwarding.email) {
+    const targets = extractAddresses(forwarding.email);
     const recipientAddresses = extractAddresses(email.recipient);
-    if (
-      target &&
-      target !== email.mailboxId.toLowerCase() &&
-      !recipientAddresses.includes(target) &&
-      email.alreadyForwarded !== true
-    ) {
+    for (const target of targets) {
+      if (
+        !target ||
+        target === email.mailboxId.toLowerCase() ||
+        recipientAddresses.includes(target) ||
+        email.alreadyForwarded === true
+      ) continue;
       if (nativeForward) {
-        // IMPORTANT: do not defer EmailMessage.forward() to waitUntil().
-        // It must execute while the Cloudflare email event is alive.
         try {
           await nativeForward(target);
         } catch (error) {
@@ -212,7 +209,7 @@ export async function runPostDelivery(
     }
   }
 
-  if (!internal && telegram?.enabled && telegram.botToken && telegram.chatId) {
+  if ((!internal || telegram?.includeInternal === true) && telegram?.enabled && telegram.botToken && telegram.chatId) {
     tasks.push(notifyTelegram(telegram, email));
   }
 
