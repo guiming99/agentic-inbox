@@ -34,14 +34,13 @@ export function getMailboxStub(
 /**
  * List all mailboxes from R2 bucket metadata.
  */
-export async function listMailboxes(
+export function listMailboxes(
 	bucket: R2Bucket,
 ): Promise<{ id: string; email: string }[]> {
-	const list = await bucket.list({ prefix: "mailboxes/" });
-	return list.objects.map((obj) => {
+	return bucket.list({ prefix: "mailboxes/" }).then((list) => list.objects.map((obj) => {
 		const id = obj.key.replace("mailboxes/", "").replace(".json", "");
 		return { id, email: id };
-	});
+	}));
 }
 
 // ── Sender Validation ──────────────────────────────────────────────
@@ -117,14 +116,14 @@ export function buildReferencesChain(original: EmailFull): {
 
 /**
  * Resolve a conversation thread id using RFC email threading headers.
- * Priority: References[0] -> In-Reply-To -> current Message-ID.
+ * Priority: In-Reply-To -> last References entry -> current Message-ID.
  */
 export function resolveThreadId(
 	messageId: string,
 	references: string[] = [],
 	inReplyTo?: string | null,
 ): string {
-	return references[0] || inReplyTo || messageId;
+	return inReplyTo || references[references.length - 1] || messageId;
 }
 
 /**
@@ -223,25 +222,20 @@ export const formatEmailDate = formatQuotedDate;
 
 /**
  * Build a quoted reply block HTML string from original email data.
+ * Preserve sanitized HTML so tables, links, emphasis and inline formatting remain rendered.
  */
-export function buildQuotedReplyBlock(original: {
-	date?: string;
-	sender?: string;
-	body?: string;
-}): string {
-	if (!original.body) return "";
-	
-	// HTML-escape sender and date to prevent injection
-	const originalSender = escapeHtml(original.sender || "unknown");
-	const originalDate = escapeHtml(formatEmailDate(original.date || ""));
-
-	// Sanitize the body to plain text to prevent stored XSS.
-	// The original HTML renders safely in the sandboxed iframe, but quoted
-	// reply blocks are injected into the compose editor and outgoing emails
-	// where raw HTML would execute. Convert to escaped plain text instead.
-	const plainBody = stripHtmlToText(original.body);
-	const bodyToQuote = escapeHtml(plainBody).replace(/\n/g, "<br>");
-
+export function buildQuotedReplyBlock(
+	dateStr: string | undefined,
+	sender: string,
+	body: string,
+): string {
+	if (!body) return "";
+	const originalSender = escapeHtml(sender || "unknown");
+	const originalDate = escapeHtml(formatEmailDate(dateStr || ""));
+	const looksLikeHtml = /<[a-z][\s\S]*>/i.test(body);
+	const bodyToQuote = looksLikeHtml
+		? DOMPurify.sanitize(body)
+		: escapeHtml(body).replace(/\r?\n/g, "<br>");
 	return `<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${originalDate}, ${originalSender} wrote:<br><br>${bodyToQuote}</blockquote>`;
 }
 
