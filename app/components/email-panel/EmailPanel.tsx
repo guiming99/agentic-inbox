@@ -17,7 +17,7 @@ import { useDeleteEmail, useEmail, useMoveEmail, useReplyToEmail, useSendEmail, 
 import { useFolders } from "~/queries/folders";
 import { useMailbox } from "~/queries/mailboxes";
 import type { Email, Folder, Mailbox } from "~/types";
-import { useUIStore } from "~/stores/ui";
+import { useUIStore } from "~/hooks/useUIStore";
 
 function EmailPanelSkeleton() { return <div className="animate-pulse p-5 space-y-4"><div className="h-5 w-2/3 rounded bg-kumo-fill" /><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-kumo-fill" /><div className="space-y-2 flex-1"><div className="h-3 w-40 rounded bg-kumo-fill" /><div className="h-2.5 w-24 rounded bg-kumo-fill" /></div></div><div className="space-y-2 pt-4"><div className="h-2.5 w-full rounded bg-kumo-fill" /><div className="h-2.5 w-5/6 rounded bg-kumo-fill" /><div className="h-2.5 w-4/6 rounded bg-kumo-fill" /><div className="h-2.5 w-3/4 rounded bg-kumo-fill" /></div></div>; }
 
