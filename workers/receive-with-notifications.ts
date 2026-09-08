@@ -99,10 +99,35 @@ export async function receiveEmailWithNotifications(event: ForwardableEvent, env
 	// receiveEmail() still consumes the original IncomingEmailMessage shape.
 	// Pass it a fresh stream so the inbound message is actually persisted.
 	// The parsed copy above is retained for post-delivery work.
-	await receiveEmail({ raw: new Response(raw).body!, rawSize: raw.byteLength, to: event.to }, env, ctx);
+	await receiveEmail(
+		{ raw: new Response(raw).body!, rawSize: raw.byteLength, to: event.to },
+		env,
+		ctx
+	);
 
 	await forwardToGlobalArchive(event, env, raw, extractMessageId(parsed.messageId), parsed);
 	if (!mailboxId) return;
 	const settings = await getPostDeliverySettings(env, mailboxId);
-	await runPostDelivery(env, ctx, { mailboxId, emailId: extractMessageId(parsed.messageId) || crypto.randomUUID(), sender: (parsed.from?.address || "").toLowerCase(), recipient: "", subject: parsed.subject || "", body: parsed.html || parsed.text || "", date: new Date().toISOString(), messageId: extractMessageId(parsed.messageId), alreadyForwarded: hasForwardingMarker(parsed) }, settings, typeof event.forward === "function" ? event.forward.bind(event) : undefined);
+	const sender = (parsed.from?.address || "").toLowerCase();
+	const recipients = (parsed.to || [])
+		.map((entry: any) => normalizeAddress(entry.address))
+		.filter(Boolean)
+		.join(", ");
+	await runPostDelivery(
+		env,
+		ctx,
+		{
+			mailboxId,
+			emailId: extractMessageId(parsed.messageId) || crypto.randomUUID(),
+			sender,
+			recipient: recipients || mailboxId,
+			subject: parsed.subject || "",
+			body: parsed.html || parsed.text || "",
+			date: new Date().toISOString(),
+			messageId: extractMessageId(parsed.messageId),
+			alreadyForwarded: hasForwardingMarker(parsed)
+		},
+		settings,
+		typeof event.forward === "function" ? event.forward.bind(event) : undefined
+	);
 }
