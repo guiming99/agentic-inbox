@@ -36,6 +36,6 @@ const api={
  createFolder:(mailboxId:string,name:string)=>post<Folder>(`/api/v1/mailboxes/${mailboxId}/folders`,{name}),
  updateFolder:(mailboxId:string,id:string,name:string)=>put<Folder>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`,{name}),
  deleteFolder:(mailboxId:string,id:string)=>del<void>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`),
- searchEmails:(mailboxId:string,params:Record<string,string>)=>get<EmailListResponse|Email[]>(`/api/v1/mailboxes/${mailboxId}/search`,params?{params}:undefined),
+ searchEmails:(mailboxId:string,params:Record<string,string>)=>get<EmailListResponse|Email[]>(`/api/v1/mailboxes/${mailboxId}/search`,{params}),
 };
 export default api;
