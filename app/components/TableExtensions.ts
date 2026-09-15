@@ -51,15 +51,33 @@ export const OfficeInlineStyle = Mark.create({
 		};
 	},
 	parseHTML() {
-		return [{ tag: "span[style]" }, { tag: "font" }];
+		// This mark is only for text inside pasted Excel/Office tables.
+		// SignatureAsset also uses styled spans; treating those spans as marks
+		// makes the signature layout unstable and can turn its inline assets into
+		// separate blocks in the serialized email HTML.
+		return [
+			{
+				tag: "span[style]",
+				getAttrs: (node) => (node as HTMLElement).closest("td, th") ? null : false,
+			},
+			{
+				tag: "font",
+				getAttrs: (node) => (node as HTMLElement).closest("td, th") ? null : false,
+			},
+		];
 	},
 	renderHTML({ HTMLAttributes }) {
 		return ["span", mergeAttributes(HTMLAttributes), 0];
 	},
 });
 
-function renderCellAttributes(HTMLAttributes: Record<string, unknown>, defaults: Record<string, unknown>) {
-	return mergeAttributes(defaults, HTMLAttributes);
+function renderCellAttributes(HTMLAttributes: Record<string, unknown>) {
+	const existingStyle = typeof HTMLAttributes.style === "string" ? HTMLAttributes.style : "";
+	const hasBorder = /\bborder(?:-(?:top|right|bottom|left))?\s*:/i.test(existingStyle);
+	const style = hasBorder
+		? existingStyle
+		: `${existingStyle}${existingStyle && !existingStyle.trim().endsWith(";") ? ";" : ""} border: 1px solid #b7b7b7;`;
+	return { ...HTMLAttributes, style };
 }
 
 export const TableCell = Node.create({
@@ -74,7 +92,7 @@ export const TableCell = Node.create({
 		return [{ tag: "td" }];
 	},
 	renderHTML({ HTMLAttributes }) {
-		return ["td", renderCellAttributes(HTMLAttributes, {}), 0];
+		return ["td", renderCellAttributes(HTMLAttributes), 0];
 	},
 });
 
@@ -90,7 +108,7 @@ export const TableHeader = Node.create({
 		return [{ tag: "th" }];
 	},
 	renderHTML({ HTMLAttributes }) {
-		return ["th", renderCellAttributes(HTMLAttributes, {}), 0];
+		return ["th", renderCellAttributes(HTMLAttributes), 0];
 	},
 });
 
