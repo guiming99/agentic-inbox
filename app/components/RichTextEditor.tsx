@@ -39,48 +39,98 @@ interface RichTextEditorProps {
 
 const MAX_INLINE_IMAGE_SIZE = 8 * 1024 * 1024;
 
+function cssLength(value: string | null) {
+	if (!value) return null;
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	if (/^\d+(?:\.\d+)?(?:px|pt|in|cm|mm|%)$/i.test(trimmed)) return trimmed;
+	if (/^\d+(?:\.\d+)?$/i.test(trimmed)) return `${trimmed}px`;
+	return null;
+}
+
+function normalizeOfficeCellStyle(element: HTMLElement) {
+	const styles = new Map<string, string>();
+	const add = (name: string, value: string | null | undefined) => {
+		if (value) styles.set(name, value.trim());
+	};
+
+	const style = element.getAttribute("style") || "";
+	for (const declaration of style.split(";")) {
+		const separator = declaration.indexOf(":");
+		if (separator <= 0) continue;
+		const name = declaration.slice(0, separator).trim().toLowerCase();
+		const value = declaration.slice(separator + 1).trim();
+		if (!value) continue;
+		if (["mso-border-alt", "mso-border-insideh", "mso-border-insidev", "mso-padding-alt"].includes(name)) continue;
+		if (name === "mso-char-indent-count" || name === "mso-line-height-rule") continue;
+		add(name, value);
+	}
+
+	add("width", cssLength(element.getAttribute("width")) || styles.get("width"));
+	add("height", cssLength(element.getAttribute("height")) || styles.get("height"));
+	add("text-align", element.getAttribute("align") || styles.get("text-align"));
+	add("vertical-align", element.getAttribute("valign") || styles.get("vertical-align"));
+	const bg = element.getAttribute("bgcolor");
+	if (bg) add("background-color", bg);
+
+	const color = element.getAttribute("color");
+	if (color) add("color", color);
+
+	const font = element.getAttribute("face");
+	if (font) add("font-family", font);
+	const size = element.getAttribute("size");
+	if (size && !styles.has("font-size")) {
+		const points = ({ "1": 8, "2": 10, "3": 12, "4": 14, "5": 18, "6": 24, "7": 36 } as Record<string, number>)[size];
+		if (points) add("font-size", `${points}pt`);
+	}
+
+	const border = element.getAttribute("border");
+	if (border && !styles.has("border")) add("border", `${border}px solid #808080`);
+
+	if (styles.size) element.setAttribute("style", Array.from(styles.entries()).map(([name, value]) => `${name}: ${value}`).join("; "));
+	else element.removeAttribute("style");
+
+	for (const attribute of Array.from(element.attributes)) {
+		const name = attribute.name.toLowerCase();
+		if (name === "class" || name.startsWith("data-") || name.startsWith("mso-") || name === "width" || name === "height" || name === "align" || name === "valign" || name === "bgcolor" || name === "color" || name === "face" || name === "size" || name === "border") {
+			element.removeAttribute(attribute.name);
+		}
+	}
+}
+
 function normalizePastedTableHtml(html: string) {
 	const document = new DOMParser().parseFromString(html, "text/html");
-	document.querySelectorAll("style, meta, link, xml").forEach((node) => node.remove());
+	document.querySelectorAll("style, meta, link, xml, o\\:p, v\\:*").forEach((node) => node.remove());
 	document.querySelectorAll("comment").forEach((node) => node.remove());
 
 	const table = document.querySelector("table");
 	if (!table) return null;
 
-	// Excel/Office clipboard HTML often carries the visual formatting directly on
-	// table/cell attributes. Keep those attributes instead of reducing the table
-	// to plain text + generic editor CSS.
-	const allowedAttributes = new Set(["style", "width", "height", "align", "valign", "bgcolor", "colspan", "rowspan"]);
-	const tableElements = table.querySelectorAll("table, colgroup, col, tbody, thead, tfoot, tr, td, th");
-	for (const node of [table, ...Array.from(tableElements)]) {
-		if (!(node instanceof HTMLElement)) continue;
-		for (const attribute of Array.from(node.attributes)) {
-			const name = attribute.name.toLowerCase();
-			if (name.startsWith("mso-") || name.startsWith("data-") || (!allowedAttributes.has(name) && name !== "border" && name !== "cellpadding" && name !== "cellspacing")) {
-				node.removeAttribute(attribute.name);
-			}
+	const colgroup = table.querySelector("colgroup");
+	colgroup?.querySelectorAll("col").forEach((col) => {
+		const width = cssLength(col.getAttribute("width"));
+		if (width) col.setAttribute("style", `width: ${width}`);
+		col.removeAttribute("class");
+		col.removeAttribute("width");
+	});
+
+	for (const row of Array.from(table.querySelectorAll("tr"))) {
+		for (const cell of Array.from(row.querySelectorAll("td, th"))) {
+			const element = cell as HTMLElement;
+			const colspan = Number.parseInt(element.getAttribute("colspan") || "1", 10);
+			const rowspan = Number.parseInt(element.getAttribute("rowspan") || "1", 10);
+			if (colspan > 1) element.setAttribute("colspan", String(colspan));
+			else element.removeAttribute("colspan");
+			if (rowspan > 1) element.setAttribute("rowspan", String(rowspan));
+			else element.removeAttribute("rowspan");
+			normalizeOfficeCellStyle(element);
 		}
 	}
 
-	// Convert legacy HTML alignment/background attributes into inline CSS so the
-	// TipTap table nodes can retain the appearance after serialization.
-	for (const cell of table.querySelectorAll("td, th")) {
-		const element = cell as HTMLElement;
-		const declarations: string[] = [];
-		const existingStyle = element.getAttribute("style")?.trim();
-		if (existingStyle) declarations.push(existingStyle.replace(/;?\s*$/, ";"));
-		const align = element.getAttribute("align");
-		const valign = element.getAttribute("valign");
-		const bgcolor = element.getAttribute("bgcolor");
-		if (align && !/text-align\s*:/i.test(existingStyle || "")) declarations.push(`text-align:${align};`);
-		if (valign && !/vertical-align\s*:/i.test(existingStyle || "")) declarations.push(`vertical-align:${valign};`);
-		if (bgcolor && !/background(?:-color)?\s*:/i.test(existingStyle || "")) declarations.push(`background-color:${bgcolor};`);
-		if (declarations.length) element.setAttribute("style", declarations.join(" "));
-		element.removeAttribute("align");
-		element.removeAttribute("valign");
-		element.removeAttribute("bgcolor");
-	}
-
+	const tableElement = table as HTMLElement;
+	normalizeOfficeCellStyle(tableElement);
+	const tableStyle = tableElement.getAttribute("style") || "";
+	tableElement.setAttribute("style", `${tableStyle}${tableStyle && !tableStyle.endsWith(";") ? ";" : ""} border-collapse: collapse;`);
 	return table.outerHTML;
 }
 
@@ -103,7 +153,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 		content: value,
 		editorProps: {
 			attributes: {
-				class: "prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3 text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-kumo-line [&_blockquote]:pl-3 [&_blockquote]:text-kumo-subtle [&_blockquote]:bg-kumo-tint [&_blockquote]:py-1 [&_blockquote]:my-2 [&_blockquote]:text-xs [&_blockquote]:rounded-r-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-sm",
+				class: "prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3 text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-kumo-line [&_blockquote]:pl-3 [&_blockquote]:text-kumo-subtle [&_blockquote]:bg-kumo-tint [&_blockquote]:py-1 [&_blockquote]:my-2 [&_blockquote]:text-xs [&_blockquote]:rounded-r-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-sm [&_table]:border-collapse [&_td]:align-top [&_th]:align-top",
 			},
 		},
 		onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -112,9 +162,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 	useEffect(() => {
 		if (editor && !editor.isDestroyed && value !== editor.getHTML()) {
 			editor.commands.setContent(value);
-			const rafId = requestAnimationFrame(() => {
-				if (!editor.isDestroyed) editor.commands.focus("start");
-			});
+			const rafId = requestAnimationFrame(() => { if (!editor.isDestroyed) editor.commands.focus("start"); });
 			return () => cancelAnimationFrame(rafId);
 		}
 	}, [value, editor]);
@@ -147,9 +195,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 			editor.chain().focus().insertContent(pastedTable).run();
 			return;
 		}
-		const image = Array.from(event.clipboardData.items)
-			.map((item) => item.kind === "file" ? item.getAsFile() : null)
-			.find((file): file is File => Boolean(file?.type.startsWith("image/")));
+		const image = Array.from(event.clipboardData.items).map((item) => item.kind === "file" ? item.getAsFile() : null).find((file): file is File => Boolean(file?.type.startsWith("image/")));
 		if (!image) return;
 		event.preventDefault();
 		event.stopPropagation();
@@ -168,11 +214,8 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 		const previousUrl = editor.getAttributes("link").href;
 		const url = window.prompt("URL", previousUrl);
 		if (url === null) return;
-		if (url === "") {
-			editor.chain().focus().extendMarkRange("link").unsetLink().run();
-			return;
-		}
-		editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+		if (url === "") editor.chain().focus().extendMarkRange("link").unsetLink().run();
+		else editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
 	}, [editor]);
 
 	const insertTable = useCallback(() => {
