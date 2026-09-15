@@ -18,9 +18,13 @@ import {
 const tableCellAttributes = {
 	colspan: {
 		default: 1,
+		parseHTML: (element: HTMLElement) => Number.parseInt(element.getAttribute("colspan") || "1", 10) || 1,
+		renderHTML: (attributes: { colspan: number }) => attributes.colspan > 1 ? { colspan: attributes.colspan } : {},
 	},
 	rowspan: {
 		default: 1,
+		parseHTML: (element: HTMLElement) => Number.parseInt(element.getAttribute("rowspan") || "1", 10) || 1,
+		renderHTML: (attributes: { rowspan: number }) => attributes.rowspan > 1 ? { rowspan: attributes.rowspan } : {},
 	},
 };
 
