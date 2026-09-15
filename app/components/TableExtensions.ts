@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Mark, Node, mergeAttributes } from "@tiptap/core";
 import type { Schema } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import {
@@ -37,6 +37,26 @@ const tableCellAttributes = {
 		renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {},
 	},
 };
+
+export const OfficeInlineStyle = Mark.create({
+	name: "officeInlineStyle",
+	inclusive: true,
+	addAttributes() {
+		return {
+			style: {
+				default: null,
+				parseHTML: (element: HTMLElement) => element.getAttribute("style"),
+				renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {},
+			},
+		};
+	},
+	parseHTML() {
+		return [{ tag: "span[style]" }, { tag: "font" }];
+	},
+	renderHTML({ HTMLAttributes }) {
+		return ["span", mergeAttributes(HTMLAttributes), 0];
+	},
+});
 
 function renderCellAttributes(HTMLAttributes: Record<string, unknown>, defaults: Record<string, unknown>) {
 	return mergeAttributes(defaults, HTMLAttributes);
@@ -158,7 +178,7 @@ export const Table = Node.create({
 	},
 });
 
-export const TableExtensions = [Table, TableRow, TableHeader, TableCell];
+export const TableExtensions = [Table, TableRow, TableHeader, TableCell, OfficeInlineStyle];
 
 declare module "@tiptap/core" {
 	interface Commands<ReturnType> {
