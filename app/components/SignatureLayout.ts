@@ -36,10 +36,7 @@ export const SignatureAsset = Node.create({
 						kind,
 						src: image?.getAttribute("src") || "",
 						alt: image?.getAttribute("alt") || "",
-						label:
-							label?.textContent?.trim() ||
-							element.getAttribute("data-signature-label") ||
-							"",
+						label: label?.textContent?.trim() || element.getAttribute("data-signature-label") || "",
 						cid: image?.getAttribute("data-cid") || null,
 					};
 				},
@@ -54,18 +51,18 @@ export const SignatureAsset = Node.create({
 			src: node.attrs.src || "",
 			alt: node.attrs.alt || "",
 			style: isLogo
-				? "display:block;max-width:140px;max-height:80px;width:auto;height:auto;object-fit:contain;margin:0 auto;"
-				: "display:block;width:64px;height:64px;max-width:64px;max-height:64px;object-fit:contain;margin:0 auto;",
+				? "display:block;max-width:90px;max-height:60px;width:auto;height:auto;object-fit:contain;margin:0 auto;"
+				: "display:block;width:52px;height:52px;max-width:52px;max-height:52px;object-fit:contain;margin:0 auto;",
 		};
 		if (!isLogo) {
-			imageAttrs.width = "64";
-			imageAttrs.height = "64";
+			imageAttrs.width = "52";
+			imageAttrs.height = "52";
 		}
 		if (node.attrs.cid) imageAttrs["data-cid"] = node.attrs.cid;
 
 		const outerStyle = isLogo
-			? "display:inline-block;vertical-align:top;width:140px;margin:0 32px 0 0;padding:0;text-align:center;line-height:1.2;white-space:nowrap;"
-			: "display:inline-block;vertical-align:top;width:96px;margin:0 32px 0 0;padding:0;text-align:center;line-height:1.2;white-space:nowrap;";
+			? "display:inline-block;vertical-align:top;width:94px;margin:0 4px 0 0;padding:0;text-align:center;line-height:1.2;white-space:nowrap;"
+			: "display:inline-block;vertical-align:top;width:58px;margin:0 4px 0 0;padding:0;text-align:center;line-height:1.2;white-space:nowrap;";
 
 		return [
 			"span",
@@ -80,7 +77,7 @@ export const SignatureAsset = Node.create({
 					"span",
 					{
 						"data-signature-label": "",
-						style: "display:block;font-size:11px;line-height:16px;margin-top:4px;text-align:center;white-space:nowrap;",
+						style: "display:block;font-size:11px;line-height:14px;margin-top:1px;text-align:center;white-space:nowrap;",
 					},
 					label,
 				]]
@@ -109,7 +106,7 @@ export const SignatureRow = Node.create({
 			"div",
 			{
 				"data-signature-row": "true",
-				style: "margin:10px 0 0;padding:0;line-height:normal;white-space:nowrap;display:block;font-size:0;",
+				style: "margin:6px 0 0;padding:0;line-height:normal;white-space:nowrap;display:block;font-size:0;",
 			},
 			0,
 		];
