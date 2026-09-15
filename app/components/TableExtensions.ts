@@ -1,4 +1,5 @@
-import { Node, mergeAttributes, type CommandProps } from "@tiptap/core";
+import { Node, mergeAttributes } from "@tiptap/core";
+import type { Schema } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import {
 	addColumnAfter,
@@ -52,13 +53,14 @@ export const TableRow = Node.create({
 	},
 });
 
-function createTable(schema: Parameters<CommandProps["commands"]>[0]["state"]["schema"], rows: number, cols: number, withHeaderRow: boolean) {
+function createTable(schema: Schema, rows: number, cols: number, withHeaderRow: boolean) {
 	const rowNodes = [];
 	for (let row = 0; row < rows; row += 1) {
 		const cellType = row === 0 && withHeaderRow ? schema.nodes.tableHeader : schema.nodes.tableCell;
 		const cells = [];
 		for (let col = 0; col < cols; col += 1) {
-			cells.push(cellType.createAndFill());
+			const cell = cellType.createAndFill();
+			if (cell) cells.push(cell);
 		}
 		rowNodes.push(schema.nodes.tableRow.create(null, cells));
 	}
@@ -77,12 +79,7 @@ export const Table = Node.create({
 	renderHTML({ HTMLAttributes }) {
 		return [
 			"table",
-			mergeAttributes(
-				{
-					style: "border-collapse: collapse; width: 100%; margin: 8px 0; table-layout: fixed;",
-				},
-				HTMLAttributes,
-			),
+			mergeAttributes({ style: "border-collapse: collapse; width: 100%; margin: 8px 0; table-layout: fixed;" }, HTMLAttributes),
 			["tbody", 0],
 		];
 	},
