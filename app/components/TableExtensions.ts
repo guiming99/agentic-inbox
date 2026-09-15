@@ -26,6 +26,16 @@ const tableCellAttributes = {
 		parseHTML: (element: HTMLElement) => Number.parseInt(element.getAttribute("rowspan") || "1", 10) || 1,
 		renderHTML: (attributes: { rowspan: number }) => attributes.rowspan > 1 ? { rowspan: attributes.rowspan } : {},
 	},
+	style: {
+		default: null,
+		parseHTML: (element: HTMLElement) => element.getAttribute("style"),
+		renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {},
+	},
+	width: {
+		default: null,
+		parseHTML: (element: HTMLElement) => element.getAttribute("width"),
+		renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {},
+	},
 };
 
 function renderCellAttributes(HTMLAttributes: Record<string, unknown>, defaults: Record<string, unknown>) {
@@ -44,13 +54,7 @@ export const TableCell = Node.create({
 		return [{ tag: "td" }];
 	},
 	renderHTML({ HTMLAttributes }) {
-		return [
-			"td",
-			renderCellAttributes(HTMLAttributes, {
-				style: "border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top;",
-			}),
-			0,
-		];
+		return ["td", renderCellAttributes(HTMLAttributes, {}), 0];
 	},
 });
 
@@ -66,13 +70,7 @@ export const TableHeader = Node.create({
 		return [{ tag: "th" }];
 	},
 	renderHTML({ HTMLAttributes }) {
-		return [
-			"th",
-			renderCellAttributes(HTMLAttributes, {
-				style: "border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; font-weight: 600; background: #f5f5f5;",
-			}),
-			0,
-		];
+		return ["th", renderCellAttributes(HTMLAttributes, {}), 0];
 	},
 });
 
@@ -108,28 +106,36 @@ export const Table = Node.create({
 	group: "block",
 	tableRole: "table",
 	isolating: true,
+	addAttributes() {
+		return {
+			style: {
+				default: null,
+				parseHTML: (element: HTMLElement) => element.getAttribute("style"),
+				renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {},
+			},
+			width: {
+				default: null,
+				parseHTML: (element: HTMLElement) => element.getAttribute("width"),
+				renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {},
+			},
+		};
+	},
 	parseHTML() {
 		return [{ tag: "table" }];
 	},
 	renderHTML({ HTMLAttributes }) {
-		return [
-			"table",
-			mergeAttributes({ style: "border-collapse: collapse; width: 100%; margin: 8px 0; table-layout: fixed;" }, HTMLAttributes),
-			["tbody", 0],
-		];
+		return ["table", mergeAttributes({ style: "border-collapse: collapse; margin: 8px 0;" }, HTMLAttributes), ["tbody", 0]];
 	},
 	addCommands() {
 		return {
-			insertTable:
-				({ rows = 3, cols = 3, withHeaderRow = true } = {}) =>
-				({ tr, dispatch, editor }) => {
-					const table = createTable(editor.schema, Math.max(1, rows), Math.max(1, cols), withHeaderRow);
-					if (dispatch) {
-						const offset = tr.selection.from + 1;
-						tr.replaceSelectionWith(table).scrollIntoView().setSelection(TextSelection.near(tr.doc.resolve(offset)));
-					}
-					return true;
-				},
+			insertTable: ({ rows = 3, cols = 3, withHeaderRow = true } = {}) => ({ tr, dispatch, editor }) => {
+				const table = createTable(editor.schema, Math.max(1, rows), Math.max(1, cols), withHeaderRow);
+				if (dispatch) {
+					const offset = tr.selection.from + 1;
+					tr.replaceSelectionWith(table).scrollIntoView().setSelection(TextSelection.near(tr.doc.resolve(offset)));
+				}
+				return true;
+			},
 			addColumnBefore: () => ({ state, dispatch }) => addColumnBefore(state, dispatch),
 			addColumnAfter: () => ({ state, dispatch }) => addColumnAfter(state, dispatch),
 			deleteColumn: () => ({ state, dispatch }) => deleteColumn(state, dispatch),
