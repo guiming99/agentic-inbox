@@ -27,7 +27,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type ClipboardEvent, type DragEvent } from "react";
 import { SignatureAsset, SignatureRow } from "./SignatureLayout";
 
 interface RichTextEditorProps {
@@ -96,7 +96,7 @@ export default function RichTextEditor({
 		for (const file of Array.from(files)) void insertImageFile(file);
 	}, [insertImageFile]);
 
-	const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+	const handlePaste = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
 		const image = Array.from(event.clipboardData.items)
 			.map((item) => item.kind === "file" ? item.getAsFile() : null)
 			.find((file): file is File => Boolean(file?.type.startsWith("image/")));
@@ -105,7 +105,7 @@ export default function RichTextEditor({
 		void insertImageFile(image);
 	}, [insertImageFile]);
 
-	const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+	const handleDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
 		const imageFiles = Array.from(event.dataTransfer.files).filter((file) => file.type.startsWith("image/"));
 		if (!imageFiles.length) return;
 		event.preventDefault();
