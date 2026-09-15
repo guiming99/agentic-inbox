@@ -13,6 +13,7 @@ import {
 	ListNumbersIcon,
 	MinusIcon,
 	QuotesIcon,
+	TableIcon,
 	TextBIcon,
 	TextItalicIcon,
 	TextStrikethroughIcon,
@@ -29,6 +30,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback, useEffect, useRef, type ClipboardEvent, type DragEvent } from "react";
 import { SignatureAsset, SignatureRow } from "./SignatureLayout";
+import { TableExtensions } from "./TableExtensions";
 
 interface RichTextEditorProps {
 	value: string;
@@ -47,6 +49,7 @@ export default function RichTextEditor({
 			StarterKit,
 			SignatureAsset,
 			SignatureRow,
+			...TableExtensions,
 			Underline,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			LinkExtension.configure({ openOnClick: false }),
@@ -59,7 +62,7 @@ export default function RichTextEditor({
 		editorProps: {
 			attributes: {
 				class:
-					"prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3 text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-kumo-line [&_blockquote]:pl-3 [&_blockquote]:text-kumo-subtle [&_blockquote]:bg-kumo-tint [&_blockquote]:py-1 [&_blockquote]:my-2 [&_blockquote]:text-xs [&_blockquote]:rounded-r-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-sm",
+					"prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3 text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-kumo-line [&_blockquote]:pl-3 [&_blockquote]:text-kumo-subtle [&_blockquote]:bg-kumo-tint [&_blockquote]:py-1 [&_blockquote]:my-2 [&_blockquote]:text-xs [&_blockquote]:rounded-r-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-sm [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-kumo-line [&_td]:px-2 [&_td]:py-1.5 [&_th]:border [&_th]:border-kumo-line [&_th]:px-2 [&_th]:py-1.5 [&_th]:font-semibold [&_th]:bg-kumo-recessed",
 			},
 		},
 		onUpdate: ({ editor }) => {
@@ -124,7 +127,18 @@ export default function RichTextEditor({
 		editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
 	}, [editor]);
 
+	const insertTable = useCallback(() => {
+		if (!editor) return;
+		const rows = Number(window.prompt("Rows", "3"));
+		if (!Number.isInteger(rows) || rows < 1 || rows > 20) return;
+		const cols = Number(window.prompt("Columns", "3"));
+		if (!Number.isInteger(cols) || cols < 1 || cols > 10) return;
+		editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+	}, [editor]);
+
 	if (!editor) return null;
+
+	const tableEditingAvailable = editor.can().addRowAfter();
 
 	return (
 		<div className="rounded-lg border border-kumo-line overflow-hidden flex flex-col h-full">
@@ -142,6 +156,14 @@ export default function RichTextEditor({
 				{editor.isActive("link") && <Tooltip content="Remove link" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<LinkBreakIcon size={16} />} onClick={() => editor.chain().focus().unsetLink().run()} aria-label="Remove link" /></Tooltip>}
 				<Tooltip content="Insert image" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<ImageIcon size={16} />} onClick={() => imageInputRef.current?.click()} aria-label="Insert image" /></Tooltip>
 				<input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(event) => { insertSelectedImages(event.target.files); event.currentTarget.value = ""; }} />
+				<Tooltip content="Insert table" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<TableIcon size={16} />} onClick={insertTable} aria-label="Insert table" /></Tooltip>
+				{tableEditingAvailable && <>
+					<Tooltip content="Add row" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" onClick={() => editor.chain().focus().addRowAfter().run()} aria-label="Add row">+R</Button></Tooltip>
+					<Tooltip content="Add column" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" onClick={() => editor.chain().focus().addColumnAfter().run()} aria-label="Add column">+C</Button></Tooltip>
+					<Tooltip content="Delete row" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" onClick={() => editor.chain().focus().deleteRow().run()} aria-label="Delete row">−R</Button></Tooltip>
+					<Tooltip content="Delete column" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" onClick={() => editor.chain().focus().deleteColumn().run()} aria-label="Delete column">−C</Button></Tooltip>
+					<Tooltip content="Delete table" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" onClick={() => editor.chain().focus().deleteTable().run()} aria-label="Delete table">×T</Button></Tooltip>
+				</>}
 				<Tooltip content="Horizontal rule" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<MinusIcon size={16} />} onClick={() => editor.chain().focus().setHorizontalRule().run()} aria-label="Horizontal rule" /></Tooltip>
 				<div className="mx-1 h-5 w-px bg-kumo-fill" />
 				<Tooltip content="Undo" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<ArrowCounterClockwiseIcon size={16} />} onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} aria-label="Undo" /></Tooltip>
