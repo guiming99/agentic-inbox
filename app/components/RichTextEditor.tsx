@@ -47,31 +47,44 @@ function normalizePastedTableHtml(html: string) {
 	const table = document.querySelector("table");
 	if (!table) return null;
 
-	table.querySelectorAll("tr").forEach((row) => {
-		row.querySelectorAll("td, th").forEach((cell) => {
-			const element = cell as HTMLElement;
-			for (const attribute of Array.from(element.attributes)) {
-				const name = attribute.name.toLowerCase();
-				if (name.startsWith("mso-") || name === "class" || name.startsWith("data-")) {
-					element.removeAttribute(attribute.name);
-				}
+	// Excel/Office clipboard HTML often carries the visual formatting directly on
+	// table/cell attributes. Keep those attributes instead of reducing the table
+	// to plain text + generic editor CSS.
+	const allowedAttributes = new Set(["style", "width", "height", "align", "valign", "bgcolor", "colspan", "rowspan"]);
+	const tableElements = table.querySelectorAll("table, colgroup, col, tbody, thead, tfoot, tr, td, th");
+	for (const node of [table, ...Array.from(tableElements)]) {
+		if (!(node instanceof HTMLElement)) continue;
+		for (const attribute of Array.from(node.attributes)) {
+			const name = attribute.name.toLowerCase();
+			if (name.startsWith("mso-") || name.startsWith("data-") || (!allowedAttributes.has(name) && name !== "border" && name !== "cellpadding" && name !== "cellspacing")) {
+				node.removeAttribute(attribute.name);
 			}
-			const colspan = Number.parseInt(element.getAttribute("colspan") || "1", 10);
-			const rowspan = Number.parseInt(element.getAttribute("rowspan") || "1", 10);
-			if (colspan > 1) element.setAttribute("colspan", String(colspan));
-			else element.removeAttribute("colspan");
-			if (rowspan > 1) element.setAttribute("rowspan", String(rowspan));
-			else element.removeAttribute("rowspan");
-		});
-	});
+		}
+	}
+
+	// Convert legacy HTML alignment/background attributes into inline CSS so the
+	// TipTap table nodes can retain the appearance after serialization.
+	for (const cell of table.querySelectorAll("td, th")) {
+		const element = cell as HTMLElement;
+		const declarations: string[] = [];
+		const existingStyle = element.getAttribute("style")?.trim();
+		if (existingStyle) declarations.push(existingStyle.replace(/;?\s*$/, ";"));
+		const align = element.getAttribute("align");
+		const valign = element.getAttribute("valign");
+		const bgcolor = element.getAttribute("bgcolor");
+		if (align && !/text-align\s*:/i.test(existingStyle || "")) declarations.push(`text-align:${align};`);
+		if (valign && !/vertical-align\s*:/i.test(existingStyle || "")) declarations.push(`vertical-align:${valign};`);
+		if (bgcolor && !/background(?:-color)?\s*:/i.test(existingStyle || "")) declarations.push(`background-color:${bgcolor};`);
+		if (declarations.length) element.setAttribute("style", declarations.join(" "));
+		element.removeAttribute("align");
+		element.removeAttribute("valign");
+		element.removeAttribute("bgcolor");
+	}
 
 	return table.outerHTML;
 }
 
-export default function RichTextEditor({
-	value,
-	onChange,
-}: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange }: RichTextEditorProps) {
 	const imageInputRef = useRef<HTMLInputElement>(null);
 	const editor = useEditor({
 		extensions: [
@@ -90,13 +103,10 @@ export default function RichTextEditor({
 		content: value,
 		editorProps: {
 			attributes: {
-				class:
-					"prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3 text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-kumo-line [&_blockquote]:pl-3 [&_blockquote]:text-kumo-subtle [&_blockquote]:bg-kumo-tint [&_blockquote]:py-1 [&_blockquote]:my-2 [&_blockquote]:text-xs [&_blockquote]:rounded-r-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-sm [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-kumo-line [&_td]:px-2 [&_td]:py-1.5 [&_th]:border [&_th]:border-kumo-line [&_th]:px-2 [&_th]:py-1.5 [&_th]:font-semibold [&_th]:bg-kumo-recessed",
+				class: "prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3 text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-kumo-line [&_blockquote]:pl-3 [&_blockquote]:text-kumo-subtle [&_blockquote]:bg-kumo-tint [&_blockquote]:py-1 [&_blockquote]:my-2 [&_blockquote]:text-xs [&_blockquote]:rounded-r-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-sm",
 			},
 		},
-		onUpdate: ({ editor }) => {
-			onChange(editor.getHTML());
-		},
+		onUpdate: ({ editor }) => onChange(editor.getHTML()),
 	});
 
 	useEffect(() => {
@@ -137,7 +147,6 @@ export default function RichTextEditor({
 			editor.chain().focus().insertContent(pastedTable).run();
 			return;
 		}
-
 		const image = Array.from(event.clipboardData.items)
 			.map((item) => item.kind === "file" ? item.getAsFile() : null)
 			.find((file): file is File => Boolean(file?.type.startsWith("image/")));
@@ -176,7 +185,6 @@ export default function RichTextEditor({
 	}, [editor]);
 
 	if (!editor) return null;
-
 	const tableEditingAvailable = editor.can().addRowAfter();
 
 	return (
