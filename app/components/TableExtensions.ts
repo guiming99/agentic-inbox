@@ -41,6 +41,9 @@ export const TableHeader = Node.create({
 });
 export const TableRow = Node.create({
 	name: "tableRow", content: "(tableCell | tableHeader)+", tableRole: "row",
+	addAttributes() {
+		return { height: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("height") || element.style.height || null, renderHTML: (attributes: { height?: string | null }) => attributes.height ? { height: attributes.height } : {} } };
+	},
 	parseHTML() { return [{ tag: "tr" }]; }, renderHTML({ HTMLAttributes }) { return ["tr", HTMLAttributes, 0]; },
 });
 
@@ -60,14 +63,32 @@ function createTable(schema: Schema, rows: number, cols: number, withHeaderRow: 
 
 export const Table = Node.create({
 	name: "table", content: "tableRow+", group: "block", tableRole: "table", isolating: true,
-	addAttributes() { return { style: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("style"), renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {} }, width: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("width"), renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {} } }; },
+	addAttributes() {
+		return {
+			style: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("style"), renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {} },
+			width: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("width"), renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {} },
+			columnWidths: {
+				default: null,
+				parseHTML: (element: HTMLElement) => Array.from(element.querySelectorAll(":scope > colgroup > col")).map((col) => {
+					const el = col as HTMLElement;
+					return el.getAttribute("width") || el.style.width || "";
+				}).filter(Boolean).join(",") || null,
+				renderHTML: (attributes: { columnWidths?: string | null }) => attributes.columnWidths ? { "data-column-widths": attributes.columnWidths } : {},
+			},
+		};
+	},
 	parseHTML() { return [{ tag: "table" }]; },
-	renderHTML({ HTMLAttributes }) { return ["table", mergeAttributes({ style: "border-collapse: collapse; margin: 8px 0;" }, HTMLAttributes), ["tbody", 0]]; },
-	addCommands() { return { insertTable: ({ rows = 3, cols = 3, withHeaderRow = true } = {}) => ({ tr, dispatch, editor }) => { const table = createTable(editor.schema, Math.max(1, rows), Math.max(1, cols), withHeaderRow); if (dispatch) { const offset = tr.selection.from + 1; tr.replaceSelectionWith(table).scrollIntoView().setSelection(TextSelection.near(tr.doc.resolve(offset))); } return true; }, addColumnBefore: () => ({ state, dispatch }) => addColumnBefore(state, dispatch), addColumnAfter: () => ({ state, dispatch }) => addColumnAfter(state, dispatch), deleteColumn: () => ({ state, dispatch }) => deleteColumn(state, dispatch), addRowBefore: () => ({ state, dispatch }) => addRowBefore(state, dispatch), addRowAfter: () => ({ state, dispatch }) => addRowAfter(state, dispatch), deleteRow: () => ({ state, dispatch }) => deleteRow(state, dispatch), deleteTable: () => ({ state, dispatch }) => deleteTable(state, dispatch), toggleHeaderRow: () => ({ state, dispatch }) => toggleHeader("row")(state, dispatch), toggleHeaderColumn: () => ({ state, dispatch }) => toggleHeader("column")(state, dispatch) }; },
+	renderHTML({ HTMLAttributes, node }) {
+		const columnWidths = typeof node.attrs.columnWidths === "string" ? node.attrs.columnWidths.split(",").filter(Boolean) : [];
+		const colgroup = columnWidths.length ? ["colgroup", ...columnWidths.map((width) => ["col", { style: `width: ${width}` }])] : null;
+		const children = colgroup ? [colgroup, ["tbody", 0]] : ["tbody", 0];
+		return ["table", mergeAttributes({ style: "border-collapse: collapse; margin: 8px 0;" }, HTMLAttributes), children];
+	},
+	addCommands() { return { insertTable: ({ rows = 3, cols = 3, withHeaderRow = true } = {}) => ({ tr, dispatch, editor }) => { const table = createTable(editor.schema, Math.max(1, rows), Math.max(1, cols), withHeaderRow); if (dispatch) { const offset = tr.selection.from + 1; tr.replaceSelectionWith(table).scrollIntoView().setSelection(TextSelection.near(tr.doc.resolve(offset))); } return true; }, addColumnBefore: () => ({ state, dispatch }) => addColumnBefore(state, dispatch), addColumnAfter: () => ({ state, dispatch }) => addColumnAfter(state, dispatch), deleteColumn: () => ({ state, dispatch }) => addColumnAfter(state, dispatch), addRowBefore: () => ({ state, dispatch }) => addRowBefore(state, dispatch), addRowAfter: () => ({ state, dispatch }) => addRowAfter(state, dispatch), deleteRow: () => ({ state, dispatch }) => deleteRow(state, dispatch), deleteTable: () => ({ state, dispatch }) => deleteTable(state, dispatch), toggleHeaderRow: () => ({ state, dispatch }) => toggleHeader("row")(state, dispatch), toggleHeaderColumn: () => ({ state, dispatch }) => toggleHeader("column")(state, dispatch) }; },
 	addKeyboardShortcuts() { return { Tab: () => this.editor.commands.goToNextCell(), "Shift-Tab": () => this.editor.commands.goToPreviousCell() }; },
 	addProseMirrorPlugins() { return [tableEditing()]; },
 });
 
 export const TableExtensions = [Table, TableRow, TableHeader, TableCell, OfficeInlineStyle];
 
-declare module "@tiptap/core" { interface Commands<ReturnType> { table: { insertTable: (options?: { rows?: number; cols?: number; withHeaderRow?: boolean }) => ReturnType; addColumnBefore: () => ReturnType; addColumnAfter: () => ReturnType; deleteColumn: () => ReturnType; addRowBefore: () => ReturnType; addRowAfter: () => ReturnType; deleteRow: () => ReturnType; deleteTable: () => ReturnType; toggleHeaderRow: () => ReturnType; toggleHeaderColumn: () => ReturnType; }; } }
+declare module "@tiptap/core" { interface Commands<ReturnType> { table: { insertTable: (options?: { rows?: number; cols?: number; withHeaderRow?: boolean }) => ReturnType; addColumnBefore: () => ReturnType; addColumnAfter: () => ReturnType; deleteColumn: () => ReturnType; addRowBefore: () => ReturnType; addRowAfter: () => ReturnType; deleteRow: () => ReturnType; toggleHeaderRow: () => ReturnType; toggleHeaderColumn: () => ReturnType; }; } }
