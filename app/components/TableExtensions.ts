@@ -15,16 +15,38 @@ import {
 	toggleHeader,
 } from "@tiptap/pm/tables";
 
+const tableCellAttributes = {
+	colspan: {
+		default: 1,
+	},
+	rowspan: {
+		default: 1,
+	},
+};
+
+function renderCellAttributes(HTMLAttributes: Record<string, unknown>, defaults: Record<string, unknown>) {
+	return mergeAttributes(defaults, HTMLAttributes);
+}
+
 export const TableCell = Node.create({
 	name: "tableCell",
 	content: "block+",
 	tableRole: "cell",
 	isolating: true,
+	addAttributes() {
+		return tableCellAttributes;
+	},
 	parseHTML() {
 		return [{ tag: "td" }];
 	},
 	renderHTML({ HTMLAttributes }) {
-		return ["td", mergeAttributes({ style: "border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top;" }, HTMLAttributes), 0];
+		return [
+			"td",
+			renderCellAttributes(HTMLAttributes, {
+				style: "border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top;",
+			}),
+			0,
+		];
 	},
 });
 
@@ -33,11 +55,20 @@ export const TableHeader = Node.create({
 	content: "block+",
 	tableRole: "header_cell",
 	isolating: true,
+	addAttributes() {
+		return tableCellAttributes;
+	},
 	parseHTML() {
 		return [{ tag: "th" }];
 	},
 	renderHTML({ HTMLAttributes }) {
-		return ["th", mergeAttributes({ style: "border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; font-weight: 600; background: #f5f5f5;" }, HTMLAttributes), 0];
+		return [
+			"th",
+			renderCellAttributes(HTMLAttributes, {
+				style: "border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; font-weight: 600; background: #f5f5f5;",
+			}),
+			0,
+		];
 	},
 });
 
