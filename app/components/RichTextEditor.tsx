@@ -41,7 +41,7 @@ const MAX_INLINE_IMAGE_SIZE = 8 * 1024 * 1024;
 
 function normalizePastedTableHtml(html: string) {
 	const document = new DOMParser().parseFromString(html, "text/html");
-	document.querySelectorAll("style, meta, link, xml, [style*='mso-']").forEach((node) => node.remove());
+	document.querySelectorAll("style, meta, link, xml").forEach((node) => node.remove());
 	document.querySelectorAll("comment").forEach((node) => node.remove());
 
 	const table = document.querySelector("table");
@@ -51,7 +51,8 @@ function normalizePastedTableHtml(html: string) {
 		row.querySelectorAll("td, th").forEach((cell) => {
 			const element = cell as HTMLElement;
 			for (const attribute of Array.from(element.attributes)) {
-				if (attribute.name.toLowerCase().startsWith("mso-") || attribute.name.toLowerCase() === "class") {
+				const name = attribute.name.toLowerCase();
+				if (name.startsWith("mso-") || name === "class" || name.startsWith("data-")) {
 					element.removeAttribute(attribute.name);
 				}
 			}
@@ -132,6 +133,7 @@ export default function RichTextEditor({
 		const pastedTable = html ? normalizePastedTableHtml(html) : null;
 		if (pastedTable && editor) {
 			event.preventDefault();
+			event.stopPropagation();
 			editor.chain().focus().insertContent(pastedTable).run();
 			return;
 		}
@@ -141,6 +143,7 @@ export default function RichTextEditor({
 			.find((file): file is File => Boolean(file?.type.startsWith("image/")));
 		if (!image) return;
 		event.preventDefault();
+		event.stopPropagation();
 		void insertImageFile(image);
 	}, [editor, insertImageFile]);
 
@@ -205,7 +208,7 @@ export default function RichTextEditor({
 				<Tooltip content="Undo" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<ArrowCounterClockwiseIcon size={16} />} onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} aria-label="Undo" /></Tooltip>
 				<Tooltip content="Redo" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<ArrowClockwiseIcon size={16} />} onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} aria-label="Redo" /></Tooltip>
 			</div>
-			<div className="flex-1 overflow-y-auto" onPaste={handlePaste} onDrop={handleDrop} onDragOver={(event) => { if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault(); }}>
+			<div className="flex-1 overflow-y-auto" onPasteCapture={handlePaste} onDrop={handleDrop} onDragOver={(event) => { if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault(); }}>
 				<EditorContent editor={editor} />
 			</div>
 		</div>
