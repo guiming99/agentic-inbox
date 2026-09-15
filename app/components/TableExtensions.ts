@@ -1,13 +1,14 @@
 import { Mark, Node, mergeAttributes } from "@tiptap/core";
 import type { Schema } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
-import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, goToNextCell, goToPreviousCell, tableEditing, toggleHeader } from "@tiptap/pm/tables";
+import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, tableEditing, toggleHeader } from "@tiptap/pm/tables";
 
 const tableCellAttributes = {
 	colspan: { default: 1, parseHTML: (element: HTMLElement) => Number.parseInt(element.getAttribute("colspan") || "1", 10) || 1, renderHTML: (attributes: { colspan: number }) => attributes.colspan > 1 ? { colspan: attributes.colspan } : {} },
 	rowspan: { default: 1, parseHTML: (element: HTMLElement) => Number.parseInt(element.getAttribute("rowspan") || "1", 10) || 1, renderHTML: (attributes: { rowspan: number }) => attributes.rowspan > 1 ? { rowspan: attributes.rowspan } : {} },
 	style: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("style"), renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {} },
 	width: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("width"), renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {} },
+	noBorder: { default: false, parseHTML: (element: HTMLElement) => element.closest("table[data-signature-row='true']") ? true : false, renderHTML: () => ({}) },
 };
 
 export const OfficeInlineStyle = Mark.create({
@@ -16,29 +17,42 @@ export const OfficeInlineStyle = Mark.create({
 	addAttributes() {
 		return { style: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("style"), renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {} } };
 	},
-	parseHTML() {
-		return [{ tag: "span[data-office-inline-style]" }, { tag: "font[data-office-inline-style]" }];
-	},
+	parseHTML() { return [{ tag: "span[data-office-inline-style]" }, { tag: "font[data-office-inline-style]" }]; },
 	renderHTML({ HTMLAttributes }) { return ["span", mergeAttributes(HTMLAttributes), 0]; },
 });
 
-function renderCellAttributes(HTMLAttributes: Record<string, unknown>) {
+function renderCellAttributes(HTMLAttributes: Record<string, unknown>, noBorder = false) {
+	if (noBorder) return { ...HTMLAttributes };
 	const existingStyle = typeof HTMLAttributes.style === "string" ? HTMLAttributes.style : "";
 	const hasBorder = /\bborder(?:-(?:top|right|bottom|left))?\s*:/i.test(existingStyle);
 	const style = hasBorder ? existingStyle : `${existingStyle}${existingStyle && !existingStyle.trim().endsWith(";") ? ";" : ""} border: 1px solid #b7b7b7;`;
 	return { ...HTMLAttributes, style };
 }
 
-export const TableCell = Node.create({ name: "tableCell", content: "block+", tableRole: "cell", isolating: true, addAttributes() { return tableCellAttributes; }, parseHTML() { return [{ tag: "td" }]; }, renderHTML({ HTMLAttributes }) { return ["td", renderCellAttributes(HTMLAttributes), 0]; } });
-export const TableHeader = Node.create({ name: "tableHeader", content: "block+", tableRole: "header_cell", isolating: true, addAttributes() { return tableCellAttributes; }, parseHTML() { return [{ tag: "th" }]; }, renderHTML({ HTMLAttributes }) { return ["th", renderCellAttributes(HTMLAttributes), 0]; } });
-export const TableRow = Node.create({ name: "tableRow", content: "(tableCell | tableHeader)+", tableRole: "row", parseHTML() { return [{ tag: "tr" }]; }, renderHTML({ HTMLAttributes }) { return ["tr", HTMLAttributes, 0]; } });
+export const TableCell = Node.create({
+	name: "tableCell", content: "block+", tableRole: "cell", isolating: true,
+	addAttributes() { return tableCellAttributes; }, parseHTML() { return [{ tag: "td" }]; },
+	renderHTML({ HTMLAttributes, node }) { return ["td", renderCellAttributes(HTMLAttributes, Boolean(node.attrs.noBorder)), 0]; },
+});
+export const TableHeader = Node.create({
+	name: "tableHeader", content: "block+", tableRole: "header_cell", isolating: true,
+	addAttributes() { return tableCellAttributes; }, parseHTML() { return [{ tag: "th" }]; },
+	renderHTML({ HTMLAttributes, node }) { return ["th", renderCellAttributes(HTMLAttributes, Boolean(node.attrs.noBorder)), 0]; },
+});
+export const TableRow = Node.create({
+	name: "tableRow", content: "(tableCell | tableHeader)+", tableRole: "row",
+	parseHTML() { return [{ tag: "tr" }]; }, renderHTML({ HTMLAttributes }) { return ["tr", HTMLAttributes, 0]; },
+});
 
 function createTable(schema: Schema, rows: number, cols: number, withHeaderRow: boolean) {
 	const rowNodes = [];
 	for (let row = 0; row < rows; row += 1) {
 		const cellType = row === 0 && withHeaderRow ? schema.nodes.tableHeader : schema.nodes.tableCell;
 		const cells = [];
-		for (let col = 0; col < cols; col += 1) { const cell = cellType.createAndFill(); if (cell) cells.push(cell); }
+		for (let col = 0; col < cols; col += 1) {
+			const cell = cellType.createAndFill({ noBorder: false });
+			if (cell) cells.push(cell);
+		}
 		rowNodes.push(schema.nodes.tableRow.create(null, cells));
 	}
 	return schema.nodes.table.create(null, rowNodes);
