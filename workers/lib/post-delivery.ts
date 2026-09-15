@@ -25,6 +25,13 @@ type NotificationSettings = {
     chatId?: string;
     includeInternal?: boolean;
   };
+  webhook?: {
+    enabled?: boolean;
+    url?: string;
+    secret?: string;
+    retry?: number;
+    includeInternal?: boolean;
+  };
 };
 
 function extractAddresses(value: string): string[] {
@@ -128,11 +135,70 @@ async function notifyTelegram(settings: NotificationSettings["telegram"], email:
   if (!response.ok) throw new Error(`Telegram notification failed: HTTP ${response.status}`);
 }
 
+function normalizeRetry(value: unknown): number {
+  const retry = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0;
+  return Math.min(Math.max(retry, 0), 3);
+}
+
+function normalizeWebhookUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+async function notifyWebhook(settings: NotificationSettings["webhook"], email: DeliveredEmail) {
+  if (!settings?.enabled) return;
+  const url = normalizeWebhookUrl(settings.url);
+  if (!url) throw new Error("Webhook URL must be a valid HTTP(S) URL");
+
+  const payload = {
+    event: "email.received",
+    emailId: email.emailId,
+    mailboxId: email.mailboxId,
+    messageId: email.messageId || null,
+    sender: email.sender,
+    recipient: email.recipient,
+    subject: email.subject,
+    body: email.body,
+    date: email.date,
+  };
+
+  const maxRetries = normalizeRetry(settings.retry);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (settings.secret) headers.Authorization = `Bearer ${settings.secret}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) return;
+      lastError = new Error(`Webhook delivery failed: HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Webhook delivery failed");
+}
+
 /** Load per-mailbox notification settings without exposing secrets to callers. */
 export async function getPostDeliverySettings(env: Env, mailboxId: string): Promise<NotificationSettings> {
   const object = await env.BUCKET.get(`mailboxes/${mailboxId.toLowerCase()}.json`);
   if (!object) return {};
-  const value = await object.json<NotificationSettings & { forwarding?: Record<string, unknown> }>();
+  const value = await object.json<NotificationSettings & { forwarding?: Record<string, unknown>; webhook?: Record<string, unknown> }>();
   return {
     forwarding: value.forwarding
       ? {
@@ -149,6 +215,15 @@ export async function getPostDeliverySettings(env: Env, mailboxId: string): Prom
           includeInternal: value.telegram.includeInternal !== false,
         }
       : undefined,
+    webhook: value.webhook
+      ? {
+          enabled: value.webhook.enabled === true,
+          url: typeof value.webhook.url === "string" ? value.webhook.url : "",
+          secret: typeof value.webhook.secret === "string" ? value.webhook.secret : "",
+          retry: normalizeRetry(value.webhook.retry),
+          includeInternal: value.webhook.includeInternal !== false,
+        }
+      : undefined,
   };
 }
 
@@ -158,8 +233,8 @@ export async function getPostDeliverySettings(env: Env, mailboxId: string): Prom
  * Native Cloudflare EmailMessage.forward() is intentionally awaited while the
  * email event is still active. Cloudflare's native forward is tied to the
  * original EmailMessage event and must not be deferred into waitUntil().
- * Telegram notification is independent and is scheduled separately, so a
- * forwarding failure can never suppress Telegram notification.
+ * Telegram/webhook notification is independent and is scheduled separately,
+ * so a forwarding failure can never suppress notification delivery.
  */
 export async function runPostDelivery(
   env: Env,
@@ -171,6 +246,7 @@ export async function runPostDelivery(
   const internal = isInternal(email, env);
   const forwarding = settings.forwarding;
   const telegram = settings.telegram;
+  const webhook = settings.webhook;
   const tasks: Promise<unknown>[] = [];
 
   if ((!internal || forwarding?.includeInternal === true) && forwarding?.enabled && forwarding.email) {
@@ -211,6 +287,10 @@ export async function runPostDelivery(
 
   if ((!internal || telegram?.includeInternal === true) && telegram?.enabled && telegram.botToken && telegram.chatId) {
     tasks.push(notifyTelegram(telegram, email));
+  }
+
+  if ((!internal || webhook?.includeInternal === true) && webhook?.enabled && webhook.url) {
+    tasks.push(notifyWebhook(webhook, email));
   }
 
   if (tasks.length === 0) return;
