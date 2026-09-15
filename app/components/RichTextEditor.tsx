@@ -39,6 +39,34 @@ interface RichTextEditorProps {
 
 const MAX_INLINE_IMAGE_SIZE = 8 * 1024 * 1024;
 
+function normalizePastedTableHtml(html: string) {
+	const document = new DOMParser().parseFromString(html, "text/html");
+	document.querySelectorAll("style, meta, link, xml, [style*='mso-']").forEach((node) => node.remove());
+	document.querySelectorAll("comment, o\\:p, v\\:*").forEach((node) => node.remove());
+
+	const table = document.querySelector("table");
+	if (!table) return null;
+
+	table.querySelectorAll("tr").forEach((row) => {
+		row.querySelectorAll("td, th").forEach((cell) => {
+			const element = cell as HTMLElement;
+			for (const attribute of Array.from(element.attributes)) {
+				if (attribute.name.toLowerCase().startsWith("mso-") || attribute.name.toLowerCase() === "class") {
+					element.removeAttribute(attribute.name);
+				}
+			}
+			const colspan = Number.parseInt(element.getAttribute("colspan") || "1", 10);
+			const rowspan = Number.parseInt(element.getAttribute("rowspan") || "1", 10);
+			if (colspan > 1) element.setAttribute("colspan", String(colspan));
+			else element.removeAttribute("colspan");
+			if (rowspan > 1) element.setAttribute("rowspan", String(rowspan));
+			else element.removeAttribute("rowspan");
+		});
+	});
+
+	return table.outerHTML;
+}
+
 export default function RichTextEditor({
 	value,
 	onChange,
@@ -100,13 +128,21 @@ export default function RichTextEditor({
 	}, [insertImageFile]);
 
 	const handlePaste = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
+		const html = event.clipboardData.getData("text/html");
+		const pastedTable = html ? normalizePastedTableHtml(html) : null;
+		if (pastedTable && editor) {
+			event.preventDefault();
+			editor.chain().focus().insertContent(pastedTable).run();
+			return;
+		}
+
 		const image = Array.from(event.clipboardData.items)
 			.map((item) => item.kind === "file" ? item.getAsFile() : null)
 			.find((file): file is File => Boolean(file?.type.startsWith("image/")));
 		if (!image) return;
 		event.preventDefault();
 		void insertImageFile(image);
-	}, [insertImageFile]);
+	}, [editor, insertImageFile]);
 
 	const handleDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
 		const imageFiles = Array.from(event.dataTransfer.files).filter((file) => file.type.startsWith("image/"));
