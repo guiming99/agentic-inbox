@@ -51,9 +51,10 @@ export const OfficeInlineStyle = Mark.create({
 		};
 	},
 	parseHTML() {
-		// Rich signature markup also uses styled spans. Only spans explicitly
-		// marked by the Excel paste normalizer may become this mark.
-		return [{ tag: "span[data-office-inline-style]" }, { tag: "td font" }, { tag: "th font" }];
+		// Scope Office text styles to spans/fonts that are actually inside
+		// table cells. Signature markup lives outside table cells and is not
+		// interpreted as an Office formatting mark.
+		return [{ tag: "td span[style]" }, { tag: "th span[style]" }, { tag: "td font" }, { tag: "th font" }];
 	},
 	renderHTML({ HTMLAttributes }) {
 		return ["span", mergeAttributes(HTMLAttributes), 0];
