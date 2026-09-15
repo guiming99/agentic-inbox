@@ -42,7 +42,7 @@ const MAX_INLINE_IMAGE_SIZE = 8 * 1024 * 1024;
 function normalizePastedTableHtml(html: string) {
 	const document = new DOMParser().parseFromString(html, "text/html");
 	document.querySelectorAll("style, meta, link, xml, [style*='mso-']").forEach((node) => node.remove());
-	document.querySelectorAll("comment, o\\:p, v\\:*").forEach((node) => node.remove());
+	document.querySelectorAll("comment").forEach((node) => node.remove());
 
 	const table = document.querySelector("table");
 	if (!table) return null;
