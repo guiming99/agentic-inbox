@@ -48,6 +48,53 @@ function cssLength(value: string | null) {
 	return null;
 }
 
+function mergeInlineCss(element: HTMLElement, declarations: string) {
+	const merged = new Map<string, string>();
+	const addDeclarations = (value: string) => {
+		for (const declaration of value.split(";")) {
+			const separator = declaration.indexOf(":");
+			if (separator <= 0) continue;
+			const name = declaration.slice(0, separator).trim().toLowerCase();
+			const cssValue = declaration.slice(separator + 1).trim();
+			if (!name || !cssValue) continue;
+			if (name.startsWith("mso-") && ["mso-border-alt", "mso-border-insideh", "mso-border-insidev", "mso-padding-alt", "mso-char-indent-count", "mso-line-height-rule"].includes(name)) continue;
+			merged.set(name, cssValue);
+		}
+	};
+	addDeclarations(declarations);
+	addDeclarations(element.getAttribute("style") || "");
+	if (merged.size) element.setAttribute("style", Array.from(merged.entries()).map(([name, value]) => `${name}: ${value}`).join("; "));
+}
+
+function resolveOfficeClassStyles(document: Document, table: Element) {
+	const rules = new Map<string, string>();
+	for (const styleElement of Array.from(document.querySelectorAll("style"))) {
+		const css = styleElement.textContent || "";
+		const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
+		let match: RegExpExecArray | null;
+		while ((match = rulePattern.exec(css))) {
+			const selectors = match[1].split(",").map((selector) => selector.trim()).filter(Boolean);
+			for (const selector of selectors) {
+				const classMatches = selector.match(/\.([_a-zA-Z][\w-]*)/g) || [];
+				for (const className of classMatches) {
+					const key = className.slice(1);
+					const previous = rules.get(key);
+					rules.set(key, previous ? `${previous};${match[2]}` : match[2]);
+				}
+			}
+		}
+	}
+
+	for (const element of Array.from(table.querySelectorAll("[class]"))) {
+		const htmlElement = element as HTMLElement;
+		const classNames = (htmlElement.getAttribute("class") || "").split(/\s+/).filter(Boolean);
+		for (const className of classNames) {
+			const declarations = rules.get(className);
+			if (declarations) mergeInlineCss(htmlElement, declarations);
+		}
+	}
+}
+
 function normalizeOfficeCellStyle(element: HTMLElement) {
 	const styles = new Map<string, string>();
 	const add = (name: string, value: string | null | undefined) => {
@@ -72,10 +119,8 @@ function normalizeOfficeCellStyle(element: HTMLElement) {
 	add("vertical-align", element.getAttribute("valign") || styles.get("vertical-align"));
 	const bg = element.getAttribute("bgcolor");
 	if (bg) add("background-color", bg);
-
 	const color = element.getAttribute("color");
 	if (color) add("color", color);
-
 	const font = element.getAttribute("face");
 	if (font) add("font-family", font);
 	const size = element.getAttribute("size");
@@ -83,7 +128,6 @@ function normalizeOfficeCellStyle(element: HTMLElement) {
 		const points = ({ "1": 8, "2": 10, "3": 12, "4": 14, "5": 18, "6": 24, "7": 36 } as Record<string, number>)[size];
 		if (points) add("font-size", `${points}pt`);
 	}
-
 	const border = element.getAttribute("border");
 	if (border && !styles.has("border")) add("border", `${border}px solid #808080`);
 
@@ -100,18 +144,22 @@ function normalizeOfficeCellStyle(element: HTMLElement) {
 
 function normalizePastedTableHtml(html: string) {
 	const document = new DOMParser().parseFromString(html, "text/html");
-	document.querySelectorAll("style, meta, link, xml, o\\:p, v\\:*").forEach((node) => node.remove());
-	document.querySelectorAll("comment").forEach((node) => node.remove());
-
 	const table = document.querySelector("table");
 	if (!table) return null;
 
+	// Excel commonly stores its real formatting in CSS classes inside <style>.
+	// Resolve those rules before removing Office-only stylesheet markup.
+	resolveOfficeClassStyles(document, table);
+	document.querySelectorAll("style, meta, link, xml, o\\:p, v\\:*").forEach((node) => node.remove());
+	document.querySelectorAll("comment").forEach((node) => node.remove());
+
 	const colgroup = table.querySelector("colgroup");
 	colgroup?.querySelectorAll("col").forEach((col) => {
-		const width = cssLength(col.getAttribute("width"));
-		if (width) col.setAttribute("style", `width: ${width}`);
-		col.removeAttribute("class");
-		col.removeAttribute("width");
+		const element = col as HTMLElement;
+		const width = cssLength(element.getAttribute("width")) || element.style.width;
+		if (width) element.setAttribute("style", `width: ${width}`);
+		element.removeAttribute("class");
+		element.removeAttribute("width");
 	});
 
 	for (const row of Array.from(table.querySelectorAll("tr"))) {
