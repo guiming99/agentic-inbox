@@ -51,20 +51,9 @@ export const OfficeInlineStyle = Mark.create({
 		};
 	},
 	parseHTML() {
-		// This mark is only for text inside pasted Excel/Office tables.
-		// SignatureAsset also uses styled spans; treating those spans as marks
-		// makes the signature layout unstable and can turn its inline assets into
-		// separate blocks in the serialized email HTML.
-		return [
-			{
-				tag: "span[style]",
-				getAttrs: (node) => (node as HTMLElement).closest("td, th") ? null : false,
-			},
-			{
-				tag: "font",
-				getAttrs: (node) => (node as HTMLElement).closest("td, th") ? null : false,
-			},
-		];
+		// Only parse styled text nodes inside table cells. SignatureAsset uses
+		// styled spans as layout containers, and those must remain untouched.
+		return [{ tag: "td span[style]" }, { tag: "th span[style]" }, { tag: "td font" }, { tag: "th font" }];
 	},
 	renderHTML({ HTMLAttributes }) {
 		return ["span", mergeAttributes(HTMLAttributes), 0];
