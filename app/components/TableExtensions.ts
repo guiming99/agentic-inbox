@@ -17,7 +17,7 @@ export const OfficeInlineStyle = Mark.create({
 		return { style: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("style"), renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {} } };
 	},
 	parseHTML() {
-		return [{ tag: "span[data-office-inline-style]" }];
+		return [{ tag: "span[data-office-inline-style]" }, { tag: "font[data-office-inline-style]" }];
 	},
 	renderHTML({ HTMLAttributes }) { return ["span", mergeAttributes(HTMLAttributes), 0]; },
 });
@@ -29,25 +29,9 @@ function renderCellAttributes(HTMLAttributes: Record<string, unknown>) {
 	return { ...HTMLAttributes, style };
 }
 
-export const TableCell = Node.create({
-	name: "tableCell", content: "block+", tableRole: "cell", isolating: true,
-	addAttributes() { return tableCellAttributes; },
-	parseHTML() { return [{ tag: "td" }]; },
-	renderHTML({ HTMLAttributes }) { return ["td", renderCellAttributes(HTMLAttributes), 0]; },
-});
-
-export const TableHeader = Node.create({
-	name: "tableHeader", content: "block+", tableRole: "header_cell", isolating: true,
-	addAttributes() { return tableCellAttributes; },
-	parseHTML() { return [{ tag: "th" }]; },
-	renderHTML({ HTMLAttributes }) { return ["th", renderCellAttributes(HTMLAttributes), 0]; },
-});
-
-export const TableRow = Node.create({
-	name: "tableRow", content: "(tableCell | tableHeader)+", tableRole: "row",
-	parseHTML() { return [{ tag: "tr" }]; },
-	renderHTML({ HTMLAttributes }) { return ["tr", HTMLAttributes, 0]; },
-});
+export const TableCell = Node.create({ name: "tableCell", content: "block+", tableRole: "cell", isolating: true, addAttributes() { return tableCellAttributes; }, parseHTML() { return [{ tag: "td" }]; }, renderHTML({ HTMLAttributes }) { return ["td", renderCellAttributes(HTMLAttributes), 0]; } });
+export const TableHeader = Node.create({ name: "tableHeader", content: "block+", tableRole: "header_cell", isolating: true, addAttributes() { return tableCellAttributes; }, parseHTML() { return [{ tag: "th" }]; }, renderHTML({ HTMLAttributes }) { return ["th", renderCellAttributes(HTMLAttributes), 0]; } });
+export const TableRow = Node.create({ name: "tableRow", content: "(tableCell | tableHeader)+", tableRole: "row", parseHTML() { return [{ tag: "tr" }]; }, renderHTML({ HTMLAttributes }) { return ["tr", HTMLAttributes, 0]; } });
 
 function createTable(schema: Schema, rows: number, cols: number, withHeaderRow: boolean) {
 	const rowNodes = [];
@@ -62,37 +46,14 @@ function createTable(schema: Schema, rows: number, cols: number, withHeaderRow: 
 
 export const Table = Node.create({
 	name: "table", content: "tableRow+", group: "block", tableRole: "table", isolating: true,
-	addAttributes() {
-		return {
-			style: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("style"), renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {} },
-			width: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("width"), renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {} },
-		};
-	},
+	addAttributes() { return { style: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("style"), renderHTML: (attributes: { style?: string | null }) => attributes.style ? { style: attributes.style } : {} }, width: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute("width"), renderHTML: (attributes: { width?: string | null }) => attributes.width ? { width: attributes.width } : {} } }; },
 	parseHTML() { return [{ tag: "table" }]; },
 	renderHTML({ HTMLAttributes }) { return ["table", mergeAttributes({ style: "border-collapse: collapse; margin: 8px 0;" }, HTMLAttributes), ["tbody", 0]]; },
-	addCommands() {
-		return {
-			insertTable: ({ rows = 3, cols = 3, withHeaderRow = true } = {}) => ({ tr, dispatch, editor }) => {
-				const table = createTable(editor.schema, Math.max(1, rows), Math.max(1, cols), withHeaderRow);
-				if (dispatch) { const offset = tr.selection.from + 1; tr.replaceSelectionWith(table).scrollIntoView().setSelection(TextSelection.near(tr.doc.resolve(offset))); }
-				return true;
-			},
-			addColumnBefore: () => ({ state, dispatch }) => addColumnBefore(state, dispatch), addColumnAfter: () => ({ state, dispatch }) => addColumnAfter(state, dispatch), deleteColumn: () => ({ state, dispatch }) => deleteColumn(state, dispatch),
-			addRowBefore: () => ({ state, dispatch }) => addRowBefore(state, dispatch), addRowAfter: () => ({ state, dispatch }) => addRowAfter(state, dispatch), deleteRow: () => ({ state, dispatch }) => deleteRow(state, dispatch), deleteTable: () => ({ state, dispatch }) => deleteTable(state, dispatch),
-			toggleHeaderRow: () => ({ state, dispatch }) => toggleHeader("row")(state, dispatch), toggleHeaderColumn: () => ({ state, dispatch }) => toggleHeader("column")(state, dispatch),
-		};
-	},
+	addCommands() { return { insertTable: ({ rows = 3, cols = 3, withHeaderRow = true } = {}) => ({ tr, dispatch, editor }) => { const table = createTable(editor.schema, Math.max(1, rows), Math.max(1, cols), withHeaderRow); if (dispatch) { const offset = tr.selection.from + 1; tr.replaceSelectionWith(table).scrollIntoView().setSelection(TextSelection.near(tr.doc.resolve(offset))); } return true; }, addColumnBefore: () => ({ state, dispatch }) => addColumnBefore(state, dispatch), addColumnAfter: () => ({ state, dispatch }) => addColumnAfter(state, dispatch), deleteColumn: () => ({ state, dispatch }) => deleteColumn(state, dispatch), addRowBefore: () => ({ state, dispatch }) => addRowBefore(state, dispatch), addRowAfter: () => ({ state, dispatch }) => addRowAfter(state, dispatch), deleteRow: () => ({ state, dispatch }) => deleteRow(state, dispatch), deleteTable: () => ({ state, dispatch }) => deleteTable(state, dispatch), toggleHeaderRow: () => ({ state, dispatch }) => toggleHeader("row")(state, dispatch), toggleHeaderColumn: () => ({ state, dispatch }) => toggleHeader("column")(state, dispatch) }; },
 	addKeyboardShortcuts() { return { Tab: () => this.editor.commands.goToNextCell(), "Shift-Tab": () => this.editor.commands.goToPreviousCell() }; },
 	addProseMirrorPlugins() { return [tableEditing()]; },
 });
 
 export const TableExtensions = [Table, TableRow, TableHeader, TableCell, OfficeInlineStyle];
 
-declare module "@tiptap/core" {
-	interface Commands<ReturnType> {
-		table: {
-			insertTable: (options?: { rows?: number; cols?: number; withHeaderRow?: boolean }) => ReturnType;
-			addColumnBefore: () => ReturnType; addColumnAfter: () => ReturnType; deleteColumn: () => ReturnType; addRowBefore: () => ReturnType; addRowAfter: () => ReturnType; deleteRow: () => ReturnType; deleteTable: () => ReturnType; toggleHeaderRow: () => ReturnType; toggleHeaderColumn: () => ReturnType;
-		};
-	}
-}
+declare module "@tiptap/core" { interface Commands<ReturnType> { table: { insertTable: (options?: { rows?: number; cols?: number; withHeaderRow?: boolean }) => ReturnType; addColumnBefore: () => ReturnType; addColumnAfter: () => ReturnType; deleteColumn: () => ReturnType; addRowBefore: () => ReturnType; addRowAfter: () => ReturnType; deleteRow: () => ReturnType; deleteTable: () => ReturnType; toggleHeaderRow: () => ReturnType; toggleHeaderColumn: () => ReturnType; }; } }
