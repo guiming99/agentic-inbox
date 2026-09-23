@@ -94,7 +94,6 @@ export const SignatureRow = Node.create({
 	priority: 1100,
 	group: "block",
 	content: "signatureAsset*",
-	isolating: true,
 	defining: true,
 
 	parseHTML() {
