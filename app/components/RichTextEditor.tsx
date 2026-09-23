@@ -71,12 +71,50 @@ export default function RichTextEditor({
 			// Place cursor at the start of the document (above quoted text)
 			const rafId = requestAnimationFrame(() => {
 				if (!editor.isDestroyed) {
-					editor.commands.focus('start');
+					editor.commands.focus("start");
 				}
 			});
 			return () => cancelAnimationFrame(rafId);
 		}
 	}, [value, editor]);
+
+	useEffect(() => {
+		if (!editor) return;
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+			requestAnimationFrame(() => {
+				if (editor.isDestroyed || !editor.isFocused) return;
+
+				const { selection } = editor.state;
+				if (selection.from !== selection.to) return;
+
+				const parent = selection.$from.parent;
+				if (parent.type.name !== "paragraph") return;
+
+				// ProseMirror can place a vertical-arrow selection at an
+				// otherwise non-editable boundary around the signature. If
+				// the resulting position is not a text cursor, snap it to
+				// the nearest valid position inside the paragraph.
+				const textOffset = selection.$from.textOffset;
+				if (textOffset === 0 && parent.content.size > 0) return;
+
+				const paragraphStart = selection.$from.start();
+				const target = Math.min(
+					paragraphStart + parent.content.size,
+					Math.max(paragraphStart, selection.from),
+				);
+				if (target !== selection.from) {
+					editor.commands.setTextSelection(target);
+				}
+			});
+		};
+
+		const view = editor.view.dom;
+		view.addEventListener("keydown", handleKeyDown);
+		return () => view.removeEventListener("keydown", handleKeyDown);
+	}, [editor]);
 
 	const setLink = useCallback(() => {
 		if (!editor) return;
