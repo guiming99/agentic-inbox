@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Banner, Button, Dialog, Input, Text } from "@cloudflare/kumo";
+import { Banner, Button, Dialog, Text } from "@cloudflare/kumo";
 import { FileIcon, PaperclipIcon, PaperPlaneTiltIcon, XIcon, FloppyDiskIcon } from "@phosphor-icons/react";
 import { useParams } from "react-router";
 import { useComposeForm } from "~/hooks/useComposeForm";
@@ -30,7 +30,7 @@ export default function ComposeEmail() {
 
 	return (
 		<Dialog.Root open={isComposeModalOpen} onOpenChange={(open) => !open && !isSending && closeComposeModal()}>
-			<Dialog size="lg" className="p-6 max-h-[85vh] overflow-y-auto">
+			<Dialog size="xl" className="p-6 max-h-[85vh] overflow-y-auto">
 				<Dialog.Title className="text-lg font-semibold mb-5">{formTitle}</Dialog.Title>
 				<form onSubmit={(e) => handleSend(e, closeComposeModal)} className="space-y-4">
 					{error && <Banner variant="error" text={error} />}
@@ -40,7 +40,19 @@ export default function ComposeEmail() {
 					</div>
 					{showCcBcc && <ContactRecipientInput label="CC" value={cc} onChange={setCc} contacts={contacts} placeholder="Search contacts or enter email address" />}
 					{showCcBcc && <ContactRecipientInput label="BCC" value={bcc} onChange={setBcc} contacts={contacts} placeholder="Search contacts or enter email address" />}
-					<Input label="Subject" type="text" placeholder="Email subject" size="sm" value={subject} onChange={(e) => setSubject(e.target.value)} required />
+					<div className="relative w-full">
+						<div className="text-xs font-medium text-kumo-subtle mb-1">Subject</div>
+						<input
+							type="text"
+								id="compose-subject"
+								name="subject"
+								placeholder="Email subject"
+								value={subject}
+							onChange={(e) => setSubject(e.target.value)}
+							required
+							className="w-full h-9 rounded-md border border-kumo-line bg-kumo-base px-3 text-base text-kumo-default outline-none focus:ring-1 focus:ring-kumo-focus placeholder:text-kumo-subtle"
+						/>
+					</div>
 					<div><Text size="sm" DANGEROUS_className="font-medium mb-1.5 block">Message</Text><RichTextEditor value={body} onChange={setBody} /></div>
 
 					{/* Attachment UI: the hook already converts files to the base64 format expected by SendEmailRequestSchema. */}
