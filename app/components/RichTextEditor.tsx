@@ -40,7 +40,9 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
 	const editor = useEditor({
 		extensions: [
-			StarterKit,
+			StarterKit.configure({
+				gapcursor: false,
+			}),
 			SignatureAsset,
 			SignatureRow,
 			Underline,
