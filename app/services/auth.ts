@@ -1,3 +1,22 @@
+const APP_SESSION_KEY = "agentic_app_session";
+
+function hasAppSession(): boolean {
+	if (typeof window === "undefined") return false;
+	return sessionStorage.getItem(APP_SESSION_KEY) === "1";
+}
+
+function createAppSession(): void {
+	if (typeof window !== "undefined") sessionStorage.setItem(APP_SESSION_KEY, "1");
+}
+
+function clearAppSession(): void {
+	if (typeof window !== "undefined") sessionStorage.removeItem(APP_SESSION_KEY);
+}
+
+export function hasActiveAppSession(): boolean {
+	return hasAppSession();
+}
+
 export interface AuthUser {
 	email: string;
 	name: string;
@@ -21,6 +40,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
 	});
 	const data = await response.json().catch(() => ({})) as { user?: AuthUser; error?: string };
 	if (!response.ok || !data.user) throw new Error(data.error || "Login failed");
+	createAppSession();
 	return data.user;
 }
 
@@ -36,5 +56,6 @@ export async function register(name: string, email: string, password: string): P
 }
 
 export async function logout(): Promise<void> {
+	clearAppSession();
 	await fetch("/api/v1/auth/logout", { method: "POST", credentials: "same-origin" });
 }
