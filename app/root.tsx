@@ -12,7 +12,7 @@ import {
 } from "@cloudflare/kumo";
 import { WarningIcon } from "@phosphor-icons/react";
 import { MutationCache, QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { forwardRef, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import {
 	isRouteErrorResponse,
 	Links,
@@ -24,7 +24,7 @@ import {
 	useLocation,
 } from "react-router";
 import { ApiError } from "~/services/api";
-import { getCurrentUser, hasActiveAppSession } from "~/services/auth";
+import { discoverAppSession, getCurrentUser } from "~/services/auth";
 import "./index.css";
 
 function makeQueryClient() {
@@ -82,8 +82,15 @@ export function HydrateFallback() {
 
 function AuthGate() {
 	const location = useLocation();
+	const [appSessionReady, setAppSessionReady] = useState(false);
+	const [appSessionActive, setAppSessionActive] = useState(false);
 	const publicRoute = location.pathname === "/login" || location.pathname === "/register";
-	const appSessionActive = typeof window !== "undefined" && hasActiveAppSession();
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		let cancelled = false;
+		discoverAppSession().then((active) => { if (!cancelled) { setAppSessionActive(active); setAppSessionReady(true); } });
+		return () => { cancelled = true; };
+	}, []);
 	const { data: user, isLoading } = useQuery({
 		queryKey: ["auth", "me"],
 		queryFn: getCurrentUser,
@@ -93,6 +100,7 @@ function AuthGate() {
 	});
 
 	if (publicRoute) return <Outlet />;
+	if (!appSessionReady) return <div className="flex items-center justify-center h-screen"><Loader size="lg" /></div>;
 	if (!appSessionActive) {
 		if (typeof window !== "undefined") window.location.replace("/login");
 		return <div className="flex items-center justify-center h-screen"><Loader size="lg" /></div>;
