@@ -24,7 +24,7 @@ import {
 	useLocation,
 } from "react-router";
 import { ApiError } from "~/services/api";
-import { getCurrentUser } from "~/services/auth";
+import { getCurrentUser, hasActiveAppSession } from "~/services/auth";
 import "./index.css";
 
 function makeQueryClient() {
@@ -83,15 +83,20 @@ export function HydrateFallback() {
 function AuthGate() {
 	const location = useLocation();
 	const publicRoute = location.pathname === "/login" || location.pathname === "/register";
+	const appSessionActive = typeof window !== "undefined" && hasActiveAppSession();
 	const { data: user, isLoading } = useQuery({
 		queryKey: ["auth", "me"],
 		queryFn: getCurrentUser,
-		enabled: !publicRoute,
+		enabled: !publicRoute && appSessionActive,
 		staleTime: 60_000,
 		retry: false,
 	});
 
 	if (publicRoute) return <Outlet />;
+	if (!appSessionActive) {
+		if (typeof window !== "undefined") window.location.replace("/login");
+		return <div className="flex items-center justify-center h-screen"><Loader size="lg" /></div>;
+	}
 	if (isLoading) return <div className="flex items-center justify-center h-screen"><Loader size="lg" /></div>;
 	if (!user) {
 		if (typeof window !== "undefined") window.location.replace("/login");
