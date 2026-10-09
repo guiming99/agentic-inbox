@@ -205,7 +205,6 @@ export async function register(name: string, email: string, password: string): P
 export async function logout(): Promise<void> {
 	clearAppSessionMarker();
 	removeOwnLease();
-	notifySessionListeners(false);
 	broadcastLogout();
 	try {
 		await fetch("/api/v1/auth/logout", { method: "POST", credentials: "same-origin" });
@@ -214,5 +213,6 @@ export async function logout(): Promise<void> {
 			window.clearInterval(heartbeatTimer);
 			heartbeatTimer = null;
 		}
+		notifySessionListeners(false);
 	}
 }
