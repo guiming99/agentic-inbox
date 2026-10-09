@@ -155,6 +155,7 @@ export async function discoverAppSession(): Promise<boolean> {
 			const requestId = getTabId();
 			const hasLiveTab = await new Promise<boolean>((resolve) => {
 				let settled = false;
+				let timeout: number;
 				const finish = (active: boolean) => {
 					if (settled) return;
 					settled = true;
@@ -166,7 +167,7 @@ export async function discoverAppSession(): Promise<boolean> {
 					if (event.data?.type === "session-present" && event.data.requestId === requestId) finish(true);
 				};
 				channel.addEventListener("message", onMessage);
-				const timeout = window.setTimeout(() => finish(false), 600);
+				timeout = window.setTimeout(() => finish(false), 600);
 				channel.postMessage({ type: "session-request", requestId });
 			});
 			if (hasLiveTab) {
