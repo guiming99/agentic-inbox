@@ -24,7 +24,7 @@ import {
 	useLocation,
 } from "react-router";
 import { ApiError } from "~/services/api";
-import { discoverAppSession, getCurrentUser } from "~/services/auth";
+import { discoverAppSession, getCurrentUser, subscribeAppSession } from "~/services/auth";
 import "./index.css";
 
 function makeQueryClient() {
@@ -88,8 +88,20 @@ function AuthGate() {
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		let cancelled = false;
-		discoverAppSession().then((active) => { if (!cancelled) { setAppSessionActive(active); setAppSessionReady(true); } });
-		return () => { cancelled = true; };
+		const unsubscribe = subscribeAppSession((active) => {
+			setAppSessionActive(active);
+			if (!active && !publicRoute) window.location.replace("/login");
+		});
+		discoverAppSession().then((active) => {
+			if (!cancelled) {
+				setAppSessionActive(active);
+				setAppSessionReady(true);
+			}
+		});
+		return () => {
+			cancelled = true;
+			unsubscribe();
+		};
 	}, []);
 	const { data: user, isLoading } = useQuery({
 		queryKey: ["auth", "me"],
