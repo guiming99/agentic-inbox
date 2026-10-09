@@ -96,6 +96,11 @@ function getSessionChannel(): BroadcastChannel | null {
 	if (!sessionChannel) {
 		sessionChannel = new BroadcastChannel(APP_SESSION_CHANNEL);
 		sessionChannel.onmessage = (event) => {
+			if (event.data?.type === "session-request" && hasAppSession()) {
+				writeLease();
+				sessionChannel?.postMessage({ type: "session-present", requestId: event.data.requestId });
+				return;
+			}
 			if (event.data?.type === "session-logout") {
 				clearAppSessionMarker();
 				removeOwnLease();
@@ -141,18 +146,38 @@ export function subscribeAppSession(listener: (active: boolean) => void): () => 
 export async function discoverAppSession(): Promise<boolean> {
 	if (typeof window === "undefined") return false;
 
-	// A sessionStorage marker can survive browser tab/session restoration, so it is
-	// never sufficient by itself to authorize a fresh document.
+	// A sessionStorage marker or unexpired lease can survive browser restoration.
+	// Require a response from a currently running tab before joining its session.
 	const activeLeases = readActiveLeases();
 	if (activeLeases.length > 0) {
-		createAppSessionMarker();
-		startSessionLease();
-		return true;
+		const channel = getSessionChannel();
+		if (channel) {
+			const requestId = getTabId();
+			const hasLiveTab = await new Promise<boolean>((resolve) => {
+				let settled = false;
+				const finish = (active: boolean) => {
+					if (settled) return;
+					settled = true;
+					channel.removeEventListener("message", onMessage);
+					window.clearTimeout(timeout);
+					resolve(active);
+				};
+				const onMessage = (event: MessageEvent) => {
+					if (event.data?.type === "session-present" && event.data.requestId === requestId) finish(true);
+				};
+				channel.addEventListener("message", onMessage);
+				const timeout = window.setTimeout(() => finish(false), 600);
+				channel.postMessage({ type: "session-request", requestId });
+			});
+			if (hasLiveTab) {
+				createAppSessionMarker();
+				startSessionLease();
+				return true;
+			}
+		}
 	}
 
-	// A same-tab hard refresh is the one case where the existing tab's marker may
-	// be reused without another tab's lease. Browser-restored/new tabs usually report
-	// "navigate" or "back_forward", and must authenticate when no live tab remains.
+	// A same-tab hard refresh may reuse its marker; restored/new tabs cannot.
 	const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
 	if (hasAppSession() && navigation?.type === "reload") {
 		startSessionLease();
