@@ -1,4 +1,5 @@
 const APP_SESSION_KEY = "agentic_app_session";
+const APP_SESSION_HANDOFF_KEY = "agentic_app_session_handoff";
 const APP_SESSION_TAB_PREFIX = "agentic_app_session_tab:";
 const APP_SESSION_LOGOUT_KEY = "agentic_app_session_logout";
 const APP_SESSION_CHANNEL = "agentic_app_session_channel";
@@ -178,6 +179,20 @@ export async function discoverAppSession(): Promise<boolean> {
 		}
 	}
 
+	// A successful login redirects the same tab from /login to the mailbox.
+	// pagehide removes the old document's lease during that navigation, so use
+	// a short-lived, one-time handoff marker to avoid rejecting that redirect.
+	try {
+		const handoffAt = Number(window.sessionStorage.getItem(APP_SESSION_HANDOFF_KEY));
+		window.sessionStorage.removeItem(APP_SESSION_HANDOFF_KEY);
+		if (hasAppSession() && Number.isFinite(handoffAt) && Date.now() - handoffAt >= 0 && Date.now() - handoffAt < 5_000) {
+			startSessionLease();
+			return true;
+		}
+	} catch {
+		// Continue with the reload and live-tab checks below.
+	}
+
 	// A same-tab hard refresh may reuse its marker; restored/new tabs cannot.
 	const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
 	if (hasAppSession() && navigation?.type === "reload") {
@@ -224,6 +239,11 @@ export async function login(email: string, password: string): Promise<AuthUser> 
 	const data = await response.json().catch(() => ({})) as { user?: AuthUser; error?: string };
 	if (!response.ok || !data.user) throw new Error(data.error || "Login failed");
 	createAppSessionMarker();
+	try {
+		window.sessionStorage.setItem(APP_SESSION_HANDOFF_KEY, String(Date.now()));
+	} catch {
+		// The normal same-tab reload and cross-tab lease paths remain available.
+	}
 	startSessionLease();
 	notifySessionListeners(true);
 	return data.user;
@@ -242,6 +262,7 @@ export async function register(name: string, email: string, password: string): P
 
 export async function logout(): Promise<void> {
 	clearAppSessionMarker();
+	try { window.sessionStorage.removeItem(APP_SESSION_HANDOFF_KEY); } catch { /* Ignore storage restrictions. */ }
 	removeOwnLease();
 	broadcastLogout();
 	try {
