@@ -140,16 +140,28 @@ export function subscribeAppSession(listener: (active: boolean) => void): () => 
 
 export async function discoverAppSession(): Promise<boolean> {
 	if (typeof window === "undefined") return false;
-	if (hasAppSession()) {
+
+	// A sessionStorage marker can survive browser tab/session restoration, so it is
+	// never sufficient by itself to authorize a fresh document.
+	const activeLeases = readActiveLeases();
+	if (activeLeases.length > 0) {
+		createAppSessionMarker();
 		startSessionLease();
 		return true;
 	}
-	// A new tab may join an existing browser session, but a persistent localStorage
-	// login flag is deliberately not used: only a live tab's short lease can grant access.
-	if (readActiveLeases().length === 0) return false;
-	createAppSessionMarker();
-	startSessionLease();
-	return true;
+
+	// A same-tab hard refresh is the one case where the existing tab's marker may
+	// be reused without another tab's lease. Browser-restored/new tabs usually report
+	// "navigate" or "back_forward", and must authenticate when no live tab remains.
+	const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+	if (hasAppSession() && navigation?.type === "reload") {
+		startSessionLease();
+		return true;
+	}
+
+	clearAppSessionMarker();
+	removeOwnLease();
+	return false;
 }
 
 function broadcastLogout(): void {
