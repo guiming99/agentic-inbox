@@ -87,6 +87,10 @@ function AuthGate() {
 	const publicRoute = location.pathname === "/login" || location.pathname === "/register";
 	useEffect(() => {
 		if (typeof window === "undefined") return;
+		if (publicRoute) {
+			setAppSessionReady(true);
+			return;
+		}
 		let cancelled = false;
 		const unsubscribe = subscribeAppSession((active) => {
 			setAppSessionActive(active);
