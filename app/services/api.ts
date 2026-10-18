@@ -1,11 +1,13 @@
 import type { Email, Folder, Mailbox } from "~/types";
 const REQUEST_TIMEOUT_MS=30_000;
-export class ApiError extends Error{status:number;body:Record<string,unknown>;constructor(status:number,body:Record<string,unknown>){super((body.error as string)||`Request failed: ${status}`);this.name="ApiError";this.status=status;this.body=body;}}
+export class ApiError extends Error{status:number;body:Record<string,unknown>;constructor(status:number,body:Record<string,unknown>){const detail=body.details&&typeof body.details==="object"?`: ${JSON.stringify(body.details)}`:"";super(`${(body.error as string)||`Request failed: ${status}`}${detail}`);this.name="ApiError";this.status=status;this.body=body;}}
 async function request<T>(url:string,options:RequestInit={}):Promise<T>{const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),REQUEST_TIMEOUT_MS);const signal=options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal;try{const isForm=typeof FormData!=="undefined"&&options.body instanceof FormData;const res=await fetch(url,{...options,signal,headers:{...(isForm?{}:{"Content-Type":"application/json"}),...(options.headers as Record<string,string>)}});if(!res.ok){const body=await res.json().catch(()=>({}));throw new ApiError(res.status,body as Record<string,unknown>);}if(res.status===204)return undefined as T;const ct=res.headers.get("content-type")||"";if(ct.includes("application/json"))return res.json() as Promise<T>;return res.blob() as unknown as T;}finally{clearTimeout(timeout);}}
 function get<T>(url:string,opts?:{params?:Record<string,string>;responseType?:string;signal?:AbortSignal}){const q=opts?.params?`?${new URLSearchParams(opts.params)}`:"";return request<T>(`${url}${q}`,{method:"GET",signal:opts?.signal,...(opts?.responseType==="blob"?{headers:{Accept:"*/*"}}:{})});}
 function post<T>(url:string,body?:unknown,opts?:{signal?:AbortSignal}){return request<T>(url,{method:"POST",signal:opts?.signal,body:body instanceof FormData?body:body!=null?JSON.stringify(body):undefined});}
 function put<T>(url:string,body?:unknown){return request<T>(url,{method:"PUT",body:body!=null?JSON.stringify(body):undefined});}
 function del<T>(url:string){return request<T>(url,{method:"DELETE"});}
+function normalizeRecipientValue(value:unknown):unknown{if(value===undefined||value===null||value==="")return undefined;const normalize=(item:string)=>{const match=item.match(/<([^>]+)>/);return(match?.[1]||item).trim().toLowerCase();};if(typeof value==="string"){const items=value.split(",").map(v=>v.trim()).filter(Boolean).map(normalize);return items.length===1?items[0]:items.length?items:undefined;}if(Array.isArray(value)){const items=value.filter((v):v is string=>typeof v==="string").map(normalize).filter(Boolean);return items.length===1?items[0]:items.length?items:undefined;}return value;}
+function normalizeSendEmail(email:unknown):unknown{if(!email||typeof email!=="object"||Array.isArray(email))return email;const source=email as Record<string,unknown>;const result={...source,to:normalizeRecipientValue(source.to),cc:normalizeRecipientValue(source.cc),bcc:normalizeRecipientValue(source.bcc)};if(result.to===undefined)delete result.to;if(result.cc===undefined)delete result.cc;if(result.bcc===undefined)delete result.bcc;return result;}
 interface EmailListResponse{emails:Email[];totalCount:number;}
 const api={
  getConfig:()=>get<{domains:string[];emailAddresses:string[]}>("/api/v1/config"),
@@ -19,7 +21,7 @@ const api={
  uploadSignatureQr:(mailboxId:string,kind:"whatsapp"|"telegram"|"wechat",file:File)=>{const form=new FormData();form.append("file",file);return post<{key:string;url:string}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-qr/${kind}`,form);},
  deleteSignatureQr:(mailboxId:string,kind:"whatsapp"|"telegram"|"wechat")=>del<{ok:boolean}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-qr/${kind}`),
  listEmails:(mailboxId:string,params:Record<string,string>,opts?:{signal?:AbortSignal})=>get<EmailListResponse|Email[]>(`/api/v1/mailboxes/${mailboxId}/emails`,{params,signal:opts?.signal}),
- sendEmail:(mailboxId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails`,email),
+ sendEmail:(mailboxId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails`,normalizeSendEmail(email)),
  getEmail:(mailboxId:string,id:string,opts?:{signal?:AbortSignal})=>get<Email>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`,{signal:opts?.signal}),
  updateEmail:(mailboxId:string,id:string,data:unknown)=>put<Email>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`,data),
  deleteEmail:(mailboxId:string,id:string)=>del<void>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`),
