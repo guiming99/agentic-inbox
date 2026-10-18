@@ -56,7 +56,7 @@ const RecipientFieldSchema = z.union([
 
 const OptionalRecipientFieldSchema = z.preprocess(
 	(value) => value === "" ? undefined : value,
-	RecipientFieldSchema,
+	RecipientFieldSchema.optional(),
 );
 
 export const ErrorResponseSchema = z.object({
