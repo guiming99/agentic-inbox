@@ -1,9 +1,10 @@
 import type { Email, Folder, Mailbox } from "~/types";
 const REQUEST_TIMEOUT_MS=30_000;
+const SEND_REQUEST_TIMEOUT_MS=120_000;
 export class ApiError extends Error{status:number;body:Record<string,unknown>;constructor(status:number,body:Record<string,unknown>){super((body.error as string)||`Request failed: ${status}`);this.name="ApiError";this.status=status;this.body=body;}}
-async function request<T>(url:string,options:RequestInit={}):Promise<T>{const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),REQUEST_TIMEOUT_MS);const signal=options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal;try{const isForm=typeof FormData!=="undefined"&&options.body instanceof FormData;const res=await fetch(url,{...options,signal,headers:{...(isForm?{}:{"Content-Type":"application/json"}),...(options.headers as Record<string,string>)}});if(!res.ok){const body=await res.json().catch(()=>({}));throw new ApiError(res.status,body as Record<string,unknown>);}if(res.status===204)return undefined as T;const ct=res.headers.get("content-type")||"";if(ct.includes("application/json"))return res.json() as Promise<T>;return res.blob() as unknown as T;}finally{clearTimeout(timeout);}}
+async function request<T>(url:string,options:RequestInit={},timeoutMs=REQUEST_TIMEOUT_MS):Promise<T>{const controller=new AbortController();let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;controller.abort();},timeoutMs);const signal=options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal;try{const isForm=typeof FormData!=="undefined"&&options.body instanceof FormData;const res=await fetch(url,{...options,signal,headers:{...(isForm?{}:{"Content-Type":"application/json"}),...(options.headers as Record<string,string>)}});if(!res.ok){const body=await res.json().catch(()=>({}));throw new ApiError(res.status,body as Record<string,unknown>);}if(res.status===204)return undefined as T;const ct=res.headers.get("content-type")||"";if(ct.includes("application/json"))return res.json() as Promise<T>;return res.blob() as unknown as T;}catch(error){if(timedOut)throw new Error(`Request timed out after ${Math.round(timeoutMs/1000)} seconds. The server may still be processing it; check Sent before retrying.`);throw error;}finally{clearTimeout(timeout);}}
 function get<T>(url:string,opts?:{params?:Record<string,string>;responseType?:string;signal?:AbortSignal}){const q=opts?.params?`?${new URLSearchParams(opts.params)}`:"";return request<T>(`${url}${q}`,{method:"GET",signal:opts?.signal,...(opts?.responseType==="blob"?{headers:{Accept:"*/*"}}:{})});}
-function post<T>(url:string,body?:unknown,opts?:{signal?:AbortSignal}){return request<T>(url,{method:"POST",signal:opts?.signal,body:body instanceof FormData?body:body!=null?JSON.stringify(body):undefined});}
+function post<T>(url:string,body?:unknown,opts?:{signal?:AbortSignal;timeoutMs?:number}){return request<T>(url,{method:"POST",signal:opts?.signal,body:body instanceof FormData?body:body!=null?JSON.stringify(body):undefined},opts?.timeoutMs);}
 function put<T>(url:string,body?:unknown){return request<T>(url,{method:"PUT",body:body!=null?JSON.stringify(body):undefined});}
 function del<T>(url:string){return request<T>(url,{method:"DELETE"});}
 interface EmailListResponse{emails:Email[];totalCount:number;}
@@ -19,7 +20,7 @@ const api={
  uploadSignatureQr:(mailboxId:string,kind:"whatsapp"|"telegram"|"wechat",file:File)=>{const form=new FormData();form.append("file",file);return post<{key:string;url:string}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-qr/${kind}`,form);},
  deleteSignatureQr:(mailboxId:string,kind:"whatsapp"|"telegram"|"wechat")=>del<{ok:boolean}>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/signature-qr/${kind}`),
  listEmails:(mailboxId:string,params:Record<string,string>,opts?:{signal?:AbortSignal})=>get<EmailListResponse|Email[]>(`/api/v1/mailboxes/${mailboxId}/emails`,{params,signal:opts?.signal}),
- sendEmail:(mailboxId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails`,email),
+ sendEmail:(mailboxId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails`,email,{timeoutMs:SEND_REQUEST_TIMEOUT_MS}),
  getEmail:(mailboxId:string,id:string,opts?:{signal?:AbortSignal})=>get<Email>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`,{signal:opts?.signal}),
  updateEmail:(mailboxId:string,id:string,data:unknown)=>put<Email>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`,data),
  deleteEmail:(mailboxId:string,id:string)=>del<void>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`),
@@ -28,8 +29,8 @@ const api={
  markThreadRead:(mailboxId:string,threadId:string)=>post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/read`),
  getAttachment:(mailboxId:string,emailId:string,attachmentId:string)=>get<Blob>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/attachments/${attachmentId}`,{responseType:"blob"}),
  saveDraft:(mailboxId:string,draft:{to?:string;cc?:string;bcc?:string;subject?:string;body:string;in_reply_to?:string;thread_id?:string;draft_id?:string})=>post<{draft_id:string}>(`/api/v1/mailboxes/${mailboxId}/drafts`,draft),
- replyToEmail:(mailboxId:string,emailId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/reply`,email),
- forwardEmail:(mailboxId:string,emailId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/forward`,email),
+ replyToEmail:(mailboxId:string,emailId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/reply`,email,{timeoutMs:SEND_REQUEST_TIMEOUT_MS}),
+ forwardEmail:(mailboxId:string,emailId:string,email:unknown)=>post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/forward`,email,{timeoutMs:SEND_REQUEST_TIMEOUT_MS}),
  listFolders:(mailboxId:string)=>get<Folder[]>(`/api/v1/mailboxes/${mailboxId}/folders`),
  createFolder:(mailboxId:string,name:string)=>post<Folder>(`/api/v1/mailboxes/${mailboxId}/folders`,{name}),
  updateFolder:(mailboxId:string,id:string,name:string)=>put<Folder>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`,{name}),
