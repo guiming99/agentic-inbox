@@ -54,6 +54,11 @@ const RecipientFieldSchema = z.union([
 	z.array(z.string().email()).min(1),
 ]);
 
+const OptionalRecipientFieldSchema = z.preprocess(
+	(value) => value === "" ? undefined : value,
+	RecipientFieldSchema,
+);
+
 export const ErrorResponseSchema = z.object({
 	error: z.string(),
 });
@@ -61,8 +66,8 @@ export const ErrorResponseSchema = z.object({
 export const SendEmailRequestSchema = z
 	.object({
 		to: RecipientFieldSchema,
-		cc: RecipientFieldSchema.optional(),
-		bcc: RecipientFieldSchema.optional(),
+		cc: OptionalRecipientFieldSchema.optional(),
+		bcc: OptionalRecipientFieldSchema.optional(),
 		from: z.union([
 			z.string().email(),
 			z.object({ email: z.string().email(), name: z.string() }),
